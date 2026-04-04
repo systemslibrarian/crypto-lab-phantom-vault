@@ -12,7 +12,6 @@ export interface CharsetConfig {
   uppercase: boolean;
   digits: boolean;
   symbols: boolean;
-  customSymbols?: string;
 }
 
 export interface DRBGState {

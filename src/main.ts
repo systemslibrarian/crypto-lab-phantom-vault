@@ -144,7 +144,10 @@ async function runDerivation(forProof = false): Promise<void> {
     return;
   }
 
-  if (!inputs.service || !inputs.username) {
+  const enabledClasses = [inputs.charset.lowercase, inputs.charset.uppercase, inputs.charset.digits, inputs.charset.symbols].filter(Boolean).length;
+  if (enabledClasses === 1) {
+    form.setWarning('Only one character class selected — entropy is significantly reduced.');
+  } else if (!inputs.service || !inputs.username) {
     form.setWarning('Service or username is blank. This is allowed, but reduces context separation.');
   }
 

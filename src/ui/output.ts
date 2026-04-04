@@ -80,7 +80,7 @@ export function createOutput(): OutputController {
     }
 
     await navigator.clipboard.writeText(passwordInput.value);
-    copyStatus.textContent = 'Copied! Clipboard clears in 30 seconds.';
+    copyStatus.textContent = 'Copied! Clipboard auto-clear scheduled in 30 s.';
 
     if (clearClipboardTimer !== null) {
       window.clearTimeout(clearClipboardTimer);
@@ -89,10 +89,10 @@ export function createOutput(): OutputController {
     clearClipboardTimer = window.setTimeout(async () => {
       try {
         await navigator.clipboard.writeText('');
+        copyStatus.textContent = 'Clipboard cleared.';
       } catch {
-        // Browser permissions can prevent clipboard clearing.
+        copyStatus.textContent = 'Clipboard clear failed — clear it manually.';
       }
-      copyStatus.textContent = '';
     }, 30_000);
   });
 

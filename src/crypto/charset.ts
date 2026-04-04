@@ -28,11 +28,7 @@ export function buildCharset(config: CharsetConfig): string {
   }
 
   if (config.symbols) {
-    const symbols = config.customSymbols?.length ? config.customSymbols : SYMBOLS;
-    if (/\s|[\x00-\x1F\x7F]/.test(symbols)) {
-      throw new Error('Custom symbols cannot include whitespace or control characters.');
-    }
-    charset += symbols;
+    charset += SYMBOLS;
   }
 
   if (charset.length === 0) {
@@ -98,8 +94,7 @@ export function hasRequiredCharacterClasses(password: string, config: CharsetCon
   }
 
   if (config.symbols) {
-    const symbols = config.customSymbols?.length ? config.customSymbols : SYMBOLS;
-    const escaped = symbols.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const escaped = SYMBOLS.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     if (!new RegExp(`[${escaped}]`).test(password)) {
       return false;
     }
