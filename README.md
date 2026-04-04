@@ -1,5 +1,7 @@
 # Phantom Vault
 
+**Live:** [https://systemslibrarian.github.io/phantom-vault/](https://systemslibrarian.github.io/phantom-vault/)
+
 ## What This Is
 Phantom Vault is a stateless password manager that derives service-specific passwords on demand. It does not store passwords, vault files, accounts, sync data, or recovery blobs. Every output is generated locally in the browser from deterministic cryptographic steps.
 
