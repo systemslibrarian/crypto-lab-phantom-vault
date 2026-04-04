@@ -30,6 +30,7 @@ app.innerHTML = `
       <button type="button" class="ghost-button" id="open-modal">How It Works</button>
     </header>
 
+    <main id="main-content">
     <section class="panel" id="progress-panel">
       <h2 class="panel-title">Pipeline Status</h2>
       <div class="progress-track" aria-hidden="true">
@@ -43,6 +44,7 @@ app.innerHTML = `
     <div id="mount-output"></div>
     <div id="mount-state"></div>
     <div id="mount-proof"></div>
+    </main>
   </div>
 
   <dialog id="how-modal" aria-labelledby="how-modal-title">

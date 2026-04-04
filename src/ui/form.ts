@@ -32,8 +32,6 @@ function buildInitialCharset(): CharsetConfig {
 export function createForm(): FormController {
   const wrapper = document.createElement('section');
   wrapper.className = 'panel panel-form';
-  wrapper.id = 'main-content';
-  wrapper.tabIndex = -1;
 
   wrapper.innerHTML = `
     <h2 class="panel-title">Derive Password</h2>
@@ -41,7 +39,7 @@ export function createForm(): FormController {
       <label class="field">
         <span>Master Passphrase</span>
         <div class="passphrase-wrap">
-          <input type="password" id="master-passphrase" autocomplete="off" required minlength="1" />
+          <input type="password" id="master-passphrase" autocomplete="off" required aria-required="true" minlength="1" />
           <button type="button" class="small-button" id="toggle-passphrase" aria-label="Toggle passphrase visibility">Show</button>
         </div>
       </label>
@@ -67,10 +65,10 @@ export function createForm(): FormController {
 
     <fieldset class="charset-fieldset">
       <legend>Character Set</legend>
-      <label><input type="checkbox" id="charset-lower" checked /> a-z</label>
-      <label><input type="checkbox" id="charset-upper" checked /> A-Z</label>
-      <label><input type="checkbox" id="charset-digits" checked /> 0-9</label>
-      <label><input type="checkbox" id="charset-symbols" checked /> !@#</label>
+      <label><input type="checkbox" id="charset-lower" checked aria-label="Lowercase letters" /> a-z</label>
+      <label><input type="checkbox" id="charset-upper" checked aria-label="Uppercase letters" /> A-Z</label>
+      <label><input type="checkbox" id="charset-digits" checked aria-label="Digits" /> 0-9</label>
+      <label><input type="checkbox" id="charset-symbols" checked aria-label="Symbols" /> !@#</label>
     </fieldset>
 
     <p class="helper-text" id="form-warning" role="status" aria-live="polite"></p>
