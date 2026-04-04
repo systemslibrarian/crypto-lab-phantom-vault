@@ -200,5 +200,5 @@ window.addEventListener('keydown', (event) => {
 });
 
 window.addEventListener('beforeunload', () => {
-  form.clearSensitive();
+  form.clearAllInputs();
 });

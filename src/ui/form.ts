@@ -5,6 +5,7 @@ export interface FormController {
   getInputs: () => VaultInputs;
   setBusy: (busy: boolean) => void;
   clearSensitive: () => void;
+  clearAllInputs: () => void;
   setError: (message: string) => void;
   setWarning: (message: string) => void;
   onDerive: (handler: () => void) => void;
@@ -152,6 +153,22 @@ export function createForm(): FormController {
     passphraseInput.value = '';
   }
 
+  function clearAllInputs(): void {
+    passphraseInput.value = '';
+    serviceInput.value = '';
+    usernameInput.value = '';
+    versionInput.value = '1';
+    lengthInput.value = '20';
+    charsetInputs.lower.checked = true;
+    charsetInputs.upper.checked = true;
+    charsetInputs.digits.checked = true;
+    charsetInputs.symbols.checked = true;
+
+    for (const item of checkboxes) {
+      item.disabled = false;
+    }
+  }
+
   function setError(message: string): void {
     errorNode.textContent = message;
   }
@@ -173,6 +190,7 @@ export function createForm(): FormController {
     getInputs,
     setBusy,
     clearSensitive,
+    clearAllInputs,
     setError,
     setWarning,
     onDerive,
