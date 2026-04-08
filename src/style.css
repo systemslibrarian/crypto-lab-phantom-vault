@@ -17,6 +17,19 @@
   --mono: 'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace;
 }
 
+html[data-theme='light'] {
+  --bg: #f4f7fc;
+  --panel: #ffffff;
+  --panel-soft: #eef3fb;
+  --border: #b7c7df;
+  --text: #16263d;
+  --muted: #3f5677;
+  --accent: #2f6fca;
+  --accent-soft: rgba(47, 111, 202, 0.16);
+  --amber: #b87a1f;
+  --danger: #b9403a;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -30,7 +43,7 @@ body {
   background:
     radial-gradient(circle at 20% 10%, rgba(61, 142, 248, 0.14), transparent 35%),
     radial-gradient(circle at 80% 5%, rgba(240, 167, 66, 0.07), transparent 30%),
-    linear-gradient(var(--bg), #050912);
+    linear-gradient(var(--bg), var(--panel));
 }
 
 body {
@@ -38,7 +51,7 @@ body {
     radial-gradient(rgba(166, 186, 216, 0.08) 1px, transparent 1px),
     radial-gradient(circle at 20% 10%, rgba(61, 142, 248, 0.14), transparent 35%),
     radial-gradient(circle at 80% 5%, rgba(240, 167, 66, 0.07), transparent 30%),
-    linear-gradient(var(--bg), #050912);
+    linear-gradient(var(--bg), var(--panel));
   background-size: 18px 18px, auto, auto, auto;
 }
 
@@ -62,10 +75,12 @@ body {
 
 .app-header {
   padding: 1rem;
+  padding-right: 4rem;
   display: flex;
   justify-content: space-between;
   gap: 1rem;
   align-items: center;
+  position: relative;
 }
 
 h1,
@@ -89,7 +104,7 @@ h1 {
 .panel-title {
   margin-bottom: 0.7rem;
   font-size: 1rem;
-  color: #f5f9ff;
+  color: var(--text);
 }
 
 .field-grid {
@@ -128,8 +143,8 @@ dialog {
 
 input {
   width: 100%;
-  background: #0b1320;
-  border: 1px solid #2b3f60;
+  background: var(--panel);
+  border: 1px solid var(--border);
   color: var(--text);
   border-radius: 8px;
   min-height: 44px;
@@ -168,14 +183,34 @@ summary:focus-visible {
 
 .action-button {
   background: var(--accent);
-  color: #f4f9ff;
+  color: var(--text);
 }
 
 .ghost-button,
 .small-button {
   background: transparent;
   color: var(--text);
-  border-color: #324c74;
+  border-color: var(--border);
+}
+
+.theme-toggle {
+  width: 2.6rem;
+  height: 2.6rem;
+  min-width: 2.6rem;
+  min-height: 2.6rem;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0;
+}
+
+.theme-toggle:hover {
+  background: var(--panel-soft);
 }
 
 .small-button {
@@ -215,7 +250,7 @@ summary:focus-visible {
 }
 
 .error-text {
-  color: #ff9d96;
+  color: var(--danger);
   min-height: 1.2rem;
 }
 
@@ -224,8 +259,8 @@ summary:focus-visible {
   margin: 0.5rem 0;
   height: 12px;
   border-radius: 99px;
-  background: #0a111c;
-  border: 1px solid #233958;
+  background: var(--panel);
+  border: 1px solid var(--border);
 }
 
 .progress-bar,
@@ -236,11 +271,11 @@ summary:focus-visible {
 }
 
 .progress-bar {
-  background: linear-gradient(90deg, #2a7ce8, var(--accent));
+  background: linear-gradient(90deg, var(--panel-soft), var(--accent));
 }
 
 .strength-bar {
-  background: linear-gradient(90deg, #3d8ef8 0%, var(--amber) 60%, var(--danger) 100%);
+  background: linear-gradient(90deg, var(--accent) 0%, var(--amber) 60%, var(--danger) 100%);
 }
 
 .step-list {
@@ -264,14 +299,14 @@ summary {
   margin-top: 0.75rem;
   padding: 0.7rem;
   border-radius: 8px;
-  background: #151216;
-  border: 1px solid rgba(240, 167, 66, 0.2);
-  color: #ffd39a;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--text);
   font-family: var(--mono);
 }
 
 .state-item h3 {
-  color: #ffd39a;
+  color: var(--text);
   font-size: 0.95rem;
   margin-bottom: 0.4rem;
 }
@@ -296,7 +331,7 @@ dialog {
   width: min(760px, 100% - 1.5rem);
   border-radius: 12px;
   border: 1px solid var(--border);
-  background: #0d1524;
+  background: var(--panel);
   color: var(--text);
   padding: 0;
 }
@@ -321,8 +356,8 @@ dialog ol {
   position: absolute;
   left: 0.5rem;
   top: -100px;
-  background: #fff;
-  color: #000;
+  background: var(--panel);
+  color: var(--text);
   padding: 0.5rem;
 }
 

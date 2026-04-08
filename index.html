@@ -2,11 +2,17 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <script>
+      (function () {
+        const saved = localStorage.getItem('theme');
+        document.documentElement.setAttribute('data-theme', saved ?? 'dark');
+      })();
+    </script>
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self'; worker-src 'self' blob:; form-action 'none'; base-uri 'self'"
+      content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self'; worker-src 'self' blob:; form-action 'none'; base-uri 'self'"
     />
     <title>Phantom Vault</title>
   </head>

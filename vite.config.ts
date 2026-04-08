@@ -3,7 +3,7 @@ import { defineConfig } from 'vite';
 export default defineConfig({
   base: '/crypto-lab-phantom-vault/',
   build: {
-    outDir: 'out',
+    outDir: 'dist',
     emptyOutDir: true,
   },
 });

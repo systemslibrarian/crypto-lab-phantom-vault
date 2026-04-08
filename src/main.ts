@@ -28,6 +28,15 @@ app.innerHTML = `
         <p>No database. No cloud. Pure math.</p>
       </div>
       <button type="button" class="ghost-button" id="open-modal">How It Works</button>
+      <button
+        type="button"
+        class="theme-toggle"
+        id="theme-toggle"
+        style="position: absolute; top: 0; right: 0"
+        aria-label="Switch to light mode"
+      >
+        🌙
+      </button>
     </header>
 
     <main id="main-content">
@@ -76,6 +85,7 @@ const stepList = requireNode<HTMLElement>(app, '#step-list');
 const openModal = requireNode<HTMLButtonElement>(app, '#open-modal');
 const closeModal = requireNode<HTMLButtonElement>(app, '#close-modal');
 const modal = requireNode<HTMLDialogElement>(app, '#how-modal');
+const themeToggle = requireNode<HTMLButtonElement>(app, '#theme-toggle');
 
 const form = createForm();
 const output = createOutput();
@@ -86,6 +96,7 @@ formMount.appendChild(form.element);
 outputMount.appendChild(output.element);
 stateMount.appendChild(stateDisplay.element);
 proofMount.appendChild(proof.element);
+setupThemeToggle(themeToggle);
 
 const stepDescriptions: Record<PipelineStep, string> = {
   stretching: 'Passphrase stretched (600,000 PBKDF2-SHA-256 iterations)',
@@ -96,6 +107,36 @@ const stepDescriptions: Record<PipelineStep, string> = {
 };
 
 const completed = new Set<PipelineStep>();
+
+type Theme = 'dark' | 'light';
+
+function setupThemeToggle(button: HTMLButtonElement): void {
+  const root = document.documentElement;
+
+  const getTheme = (): Theme => (root.getAttribute('data-theme') === 'light' ? 'light' : 'dark');
+
+  const renderButtonState = (theme: Theme): void => {
+    button.textContent = theme === 'dark' ? '🌙' : '☀️';
+    button.setAttribute('aria-label', theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode');
+  };
+
+  const applyTheme = (theme: Theme, persist: boolean): void => {
+    root.setAttribute('data-theme', theme);
+    renderButtonState(theme);
+    if (persist) {
+      localStorage.setItem('theme', theme);
+    }
+  };
+
+  const saved = localStorage.getItem('theme');
+  const initialTheme: Theme = saved === 'light' || saved === 'dark' ? saved : getTheme();
+  applyTheme(initialTheme, false);
+
+  button.addEventListener('click', () => {
+    const nextTheme: Theme = getTheme() === 'dark' ? 'light' : 'dark';
+    applyTheme(nextTheme, true);
+  });
+}
 
 function setProgress(step: PipelineStep, pct: number): void {
   progressBar.style.width = `${pct}%`;
