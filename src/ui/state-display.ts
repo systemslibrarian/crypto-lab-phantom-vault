@@ -32,7 +32,23 @@ export function createStateDisplay(): StateDisplay {
   wrapper.innerHTML = `
     <details>
       <summary>HMAC-DRBG State Machine</summary>
+      <p class="helper-text state-intro">
+        Each <code>Generate</code> call ratchets the internal state forward: a fresh key
+        <strong>K</strong> and value <strong>V</strong> per NIST SP 800-90A Rev.1. The state is
+        never reused, so the byte stream is reproducible yet non-repeating.
+      </p>
       <div id="state-list" class="state-list"></div>
+      <details class="rejection-note">
+        <summary>Why are bytes rejected?</summary>
+        <p class="helper-text">
+          To pick a character uniformly from a set of <em>N</em>, we cannot just take
+          <code>byte % N</code>: 256 is rarely a multiple of <em>N</em>, so the low values would
+          appear slightly more often — <strong>modulo bias</strong>. Instead we reject any byte at or
+          above <code>floor(256 / N) × N</code> and draw again. Every accepted byte then maps to an
+          exactly uniform character. The count below is how many bytes were discarded to keep the
+          distribution flat. (<code>npm run verify:uniformity</code> checks this with a chi-square test.)
+        </p>
+      </details>
     </details>
   `;
 

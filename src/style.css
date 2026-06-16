@@ -316,11 +316,90 @@ summary {
   color: var(--muted);
 }
 
-.proof-grid {
-  margin-top: 0.6rem;
+.entropy-breakdown {
+  margin: 0.6rem 0 0;
   display: grid;
-  gap: 0.4rem;
+  gap: 0.3rem;
+}
+
+.entropy-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.75rem;
+  font-size: 0.9rem;
+}
+
+.entropy-row dt {
+  color: var(--muted);
+}
+
+.entropy-row dd {
+  margin: 0;
   font-family: var(--mono);
+  text-align: right;
+}
+
+.entropy-row:first-child dt,
+.entropy-row:first-child dd {
+  color: var(--text);
+  font-weight: 600;
+}
+
+#entropy-note {
+  margin-top: 0.5rem;
+}
+
+.proof-table {
+  margin-top: 0.6rem;
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.proof-table th,
+.proof-table td {
+  text-align: left;
+  padding: 0.45rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.proof-table thead th {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.proof-table tbody th {
+  color: var(--text);
+  width: 2.5rem;
+}
+
+.proof-pw {
+  font-family: var(--mono);
+  word-break: break-all;
+}
+
+.state-intro,
+.rejection-note {
+  margin-top: 0.6rem;
+}
+
+.rejection-note {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.6rem 0.7rem;
+}
+
+.rejection-note summary {
+  color: var(--accent);
+}
+
+.rejection-note code,
+.state-intro code,
+.rejection-note p code {
+  font-family: var(--mono);
+  font-size: 0.85em;
 }
 
 .proof-result {
@@ -389,6 +468,20 @@ dialog ol {
   .password-box,
   .passphrase-wrap {
     grid-template-columns: 1fr;
+  }
+
+  .entropy-row {
+    flex-direction: column;
+    gap: 0.1rem;
+  }
+
+  .entropy-row dd {
+    text-align: left;
+  }
+
+  .proof-table th,
+  .proof-table td {
+    padding: 0.4rem 0.35rem;
   }
 }
 

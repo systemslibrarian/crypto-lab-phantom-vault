@@ -17,6 +17,23 @@ Live demo: [https://systemslibrarian.github.io/crypto-lab-phantom-vault/](https:
 
 The demo derives passwords in-browser from a master passphrase plus service context and selected charset rules. You can tune service, username, version, output length, and character class toggles (`lowercase`, `uppercase`, `digits`, `symbols`), then run derivation and inspect pipeline/proof output. The demo does not encrypt/decrypt stored payloads; it only derives deterministic passwords.
 
+The strength readout reports **effective entropy** as `min(master-passphrase entropy, output-format ceiling)`, not the format ceiling alone. This is the central lesson of deterministic derivation: the output can never hold more entropy than the secret it started from, so a weak passphrase caps the result no matter how long the password or how large the charset.
+
+## 3a. Verifying Correctness
+A deterministic crypto pipeline is only trustworthy if you can prove each stage is correct. This project ships that proof rather than asserting it in comments:
+
+- **HMAC-DRBG known-answer test.** `src/crypto/hmac-drbg.test.ts` runs the official NIST CAVP HMAC_DRBG / SHA-256 vector (no-reseed, prediction-resistance-false). If the implementation deviates from SP 800-90A Rev.1 §10.1.2 by a single bit, this test fails.
+- **Uniform-mapping test.** `npm run verify:uniformity` maps 100,000 random bytes through the rejection sampler and runs a chi-square goodness-of-fit test against the uniform distribution, comparing the statistic to the computed critical value (df = charset − 1, with a strict α = 1e-4 so the automated check is non-flaky while still catching genuine bias). This demonstrates that rejection sampling removes the modulo bias that `byte % N` would introduce.
+- **Pipeline property tests.** `src/derive/pipeline.test.ts` asserts the three behavioral claims the UI makes: determinism (same inputs → same password), rotation (a new `version` → a new password, old versions still reproducible), and context separation (changing `service`/`username` changes the output).
+
+Run everything with:
+
+```bash
+npm install
+npm run check   # type-check (app + tests) + tests + uniformity
+npm run build
+```
+
 ## 4. What Can Go Wrong
 - Master passphrase compromise cascades globally: if an attacker learns the passphrase, every derived credential can be regenerated.
 - Weak or low-entropy passphrase selection: deterministic generation cannot compensate for guessable input material.
@@ -39,6 +56,7 @@ The demo derives passwords in-browser from a master passphrase plus service cont
 ## Data Sources
 - NIST SP 800-90A Rev.1, HMAC-DRBG (§10.1.2)
 - NIST SP 800-132, PBKDF2 recommendations
+- NIST CAVP DRBGVS HMAC_DRBG/SHA-256 known-answer vectors (used in the test suite)
 - OWASP Password Storage Cheat Sheet
 
 *"So whether you eat or drink or whatever you do, do it all for the glory of God." — 1 Corinthians 10:31*

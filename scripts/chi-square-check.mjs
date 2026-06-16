@@ -67,8 +67,39 @@ while (mapped.sample.length < SAMPLE_SIZE) {
 mapped.sample = mapped.sample.slice(0, SAMPLE_SIZE);
 const statistic = chiSquare(mapped.sample, CHARSET);
 
-console.log(`Sample size: ${SAMPLE_SIZE}`);
-console.log(`Charset size: ${CHARSET.length}`);
+/**
+ * Upper-tail chi-square critical value via the Wilson–Hilferty approximation.
+ * Accurate to well under 1% for the degrees of freedom we use here (df = 88),
+ * which keeps this script dependency-free. z is the standard-normal quantile
+ * for the chosen upper-tail alpha.
+ */
+function chiSquareCritical(df, z) {
+  const term = 1 - 2 / (9 * df) + z * Math.sqrt(2 / (9 * df));
+  return df * term ** 3;
+}
+
+const df = CHARSET.length - 1;
+// Strict alpha: a correct uniform mapping sits near df (=88), so it clears this
+// bar ~99.99% of the time — safe to gate CI on. A biased mapping (e.g. naive
+// `byte % N`) inflates the statistic into the hundreds or thousands, far past
+// this threshold, so genuine bias is still caught deterministically.
+const ALPHA = 1e-4;
+const Z_ALPHA = 3.719016485; // standard-normal upper-tail quantile for 1e-4
+const critical = chiSquareCritical(df, Z_ALPHA);
+const pass = statistic < critical;
+
+console.log(`Sample size:    ${SAMPLE_SIZE}`);
+console.log(`Charset size:   ${CHARSET.length}`);
 console.log(`Rejected bytes: ${mapped.rejected}`);
-console.log(`Chi-square: ${statistic.toFixed(2)}`);
-console.log('NEEDS_VERIFICATION: compare against critical value table for df=89 based on chosen alpha.');
+console.log(`Degrees of freedom (df): ${df}`);
+console.log(`Chi-square statistic:    ${statistic.toFixed(2)}`);
+console.log(`Critical value (alpha=${ALPHA}): ${critical.toFixed(2)}`);
+console.log('');
+console.log(
+  pass
+    ? `PASS: ${statistic.toFixed(2)} < ${critical.toFixed(2)} — distribution is consistent with uniform (fail to reject H0). Rejection sampling removed modulo bias as intended.`
+    : `FAIL: ${statistic.toFixed(2)} >= ${critical.toFixed(2)} — distribution deviates from uniform at alpha=${ALPHA}. Investigate the mapping.`,
+);
+
+// Non-zero exit on failure so this can gate CI if wired up.
+process.exitCode = pass ? 0 : 1;

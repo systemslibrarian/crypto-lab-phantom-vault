@@ -6,14 +6,22 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "type-check": "tsc --noEmit",
+    "type-check": "tsc --noEmit && tsc -p tsconfig.test.json",
+    "test": "node --import tsx --test \"src/**/*.test.ts\"",
+    "test:coverage": "node --import tsx --test --experimental-test-coverage \"src/**/*.test.ts\"",
+    "verify:uniformity": "node scripts/chi-square-check.mjs",
+    "check": "npm run type-check && npm run test && npm run verify:uniformity",
     "preview": "vite preview"
   },
   "devDependencies": {
+    "@types/jsdom": "^28.0.3",
+    "@types/node": "^24.10.1",
     "autoprefixer": "^10.4.27",
     "gh-pages": "^6.3.0",
+    "jsdom": "^29.1.1",
     "postcss": "^8.5.8",
     "tailwindcss": "^3.4.13",
+    "tsx": "^4.22.4",
     "typescript": "~5.9.3",
     "vite": "^8.0.1"
   }

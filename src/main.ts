@@ -1,5 +1,5 @@
 import './style.css';
-import { buildCharset } from './crypto/charset';
+import { buildCharset, estimatePassphraseEntropyBits } from './crypto/charset';
 import { derivePassword, type PipelineStep } from './derive/pipeline';
 import { createForm } from './ui/form';
 import { createOutput } from './ui/output';
@@ -66,6 +66,7 @@ app.innerHTML = `
         <li>PBKDF2 slows brute-force attempts with 600,000 SHA-256 iterations.</li>
         <li>HMAC-DRBG follows NIST SP 800-90A Rev.1 §10.1.2 for auditable determinism.</li>
         <li>Rotate by increasing version while preserving old version reproducibility.</li>
+        <li>Effective strength is capped by your master passphrase: derivation cannot manufacture entropy a weak passphrase never had.</li>
         <li>Limitation: if master passphrase is compromised, all derived passwords are exposed.</li>
         <li>Sister project: corrupted-oracle (backdoored DRBG demonstration).</li>
         <li>See crypto-compare CSPRNG category for related analyses.</li>
@@ -198,7 +199,8 @@ async function runDerivation(forProof = false): Promise<void> {
   try {
     const result = await derivePassword(inputs, setProgress);
     const charset = buildCharset(inputs.charset);
-    output.setOutput(result.password, charset.length, inputs.length);
+    const passphraseEntropyBits = estimatePassphraseEntropyBits(inputs.masterPassphrase);
+    output.setOutput(result.password, charset.length, inputs.length, passphraseEntropyBits);
     stateDisplay.setStates(result.drbgStates, result.bytesGenerated, result.rejectionCount);
 
     const generateCalls = Math.max(0, result.drbgStates.length - 1);

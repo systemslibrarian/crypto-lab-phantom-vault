@@ -21,16 +21,44 @@ export function createProof(): ProofController {
 
   wrapper.innerHTML = `
     <h2 class="panel-title">Prove It</h2>
-    <p class="helper-text">Determinism is the feature. Same inputs always produce the same password.</p>
-    <div class="proof-grid">
-      <p><strong>Run 1:</strong> <span id="proof-run1">-</span></p>
-      <p><strong>Run 2:</strong> <span id="proof-run2">-</span></p>
-    </div>
-    <p id="proof-result" class="proof-result" aria-live="polite">Run proof to compare two derivations.</p>
+    <p class="helper-text">
+      Two claims, demonstrated live: the same inputs always reproduce the same password
+      (determinism), and bumping the version produces a different one (rotation).
+    </p>
+    <table class="proof-table">
+      <caption class="sr-only">Comparison of derivations proving determinism and rotation</caption>
+      <thead>
+        <tr>
+          <th scope="col">Run</th>
+          <th scope="col">Inputs</th>
+          <th scope="col">Password</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <th scope="row">1</th>
+          <td id="proof-label1">same inputs</td>
+          <td><span class="proof-pw" id="proof-run1">—</span></td>
+        </tr>
+        <tr>
+          <th scope="row">2</th>
+          <td id="proof-label2">same inputs again</td>
+          <td><span class="proof-pw" id="proof-run2">—</span></td>
+        </tr>
+        <tr>
+          <th scope="row">3</th>
+          <td id="proof-label3">version + 1</td>
+          <td><span class="proof-pw" id="proof-run3">—</span></td>
+        </tr>
+      </tbody>
+    </table>
+    <p id="proof-result" class="proof-result" aria-live="polite" role="status">Run proof to compare three derivations.</p>
   `;
 
   const run1 = requireNode<HTMLElement>(wrapper, '#proof-run1');
   const run2 = requireNode<HTMLElement>(wrapper, '#proof-run2');
+  const run3 = requireNode<HTMLElement>(wrapper, '#proof-run3');
+  const label3 = requireNode<HTMLElement>(wrapper, '#proof-label3');
   const result = requireNode<HTMLElement>(wrapper, '#proof-result');
 
   let busy = false;
@@ -44,17 +72,36 @@ export function createProof(): ProofController {
       return;
     }
 
-    result.textContent = 'Running deterministic proof...';
-    const first = await derivePassword(inputs, () => {
-      // Progress in proof is intentionally hidden to keep panel concise.
-    });
-    const second = await derivePassword(inputs, () => {
-      // Progress in proof is intentionally hidden to keep panel concise.
-    });
+    const silent = (): void => {
+      // Progress in proof is intentionally hidden to keep the panel concise.
+    };
+
+    result.textContent = 'Running determinism + rotation proof…';
+    run1.textContent = '…';
+    run2.textContent = '…';
+    run3.textContent = '…';
+
+    const first = await derivePassword(inputs, silent);
+    const second = await derivePassword(inputs, silent);
+
+    const rotated: VaultInputs = { ...inputs, version: inputs.version + 1 };
+    label3.textContent = `version ${rotated.version}`;
+    const third = await derivePassword(rotated, silent);
 
     run1.textContent = first.password;
     run2.textContent = second.password;
-    result.textContent = first.password === second.password ? '✅ MATCH' : '❌ MISMATCH';
+    run3.textContent = third.password;
+
+    const deterministic = first.password === second.password;
+    const rotates = third.password !== first.password;
+
+    if (deterministic && rotates) {
+      result.textContent = '✅ Determinism holds (Run 1 = Run 2) and rotation works (Run 3 differs).';
+    } else if (!deterministic) {
+      result.textContent = '❌ Determinism broken: identical inputs produced different passwords.';
+    } else {
+      result.textContent = '❌ Rotation failed: a new version produced the same password.';
+    }
   }
 
   return {
