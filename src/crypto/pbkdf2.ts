@@ -17,7 +17,7 @@ export interface SeedDerivationResult {
  * Per NIST SP 800-132 §5.3.
  */
 export async function deriveSeeds(inputs: VaultInputs): Promise<Uint8Array> {
-  const saltString = `${inputs.service}:${inputs.username}:${inputs.version}`;
+  const saltString = `${inputs.service}\0${inputs.username}\0${inputs.version}`;
   const saltHash = await crypto.subtle.digest('SHA-256', encoder.encode(saltString));
 
   const keyMaterial = await crypto.subtle.importKey(
@@ -46,7 +46,7 @@ export async function deriveSeedsWithProgress(
   inputs: VaultInputs,
   onProgress: (pct: number) => void,
 ): Promise<SeedDerivationResult> {
-  const saltString = `${inputs.service}:${inputs.username}:${inputs.version}`;
+  const saltString = `${inputs.service}\0${inputs.username}\0${inputs.version}`;
   const saltHash = new Uint8Array(await crypto.subtle.digest('SHA-256', encoder.encode(saltString)));
 
   if (typeof Worker !== 'undefined') {

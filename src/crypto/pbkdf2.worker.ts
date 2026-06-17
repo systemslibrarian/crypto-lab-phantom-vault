@@ -43,7 +43,7 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>): Promise<void> => {
   }, 80);
 
   try {
-    const saltString = `${request.service}:${request.username}:${request.version}`;
+    const saltString = `${request.service}\0${request.username}\0${request.version}`;
     const saltHash = await crypto.subtle.digest('SHA-256', encoder.encode(saltString));
 
     const keyMaterial = await crypto.subtle.importKey(
