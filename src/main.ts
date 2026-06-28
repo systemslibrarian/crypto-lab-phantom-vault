@@ -54,6 +54,11 @@ app.innerHTML = `
     <div id="mount-state"></div>
     <div id="mount-proof"></div>
     </main>
+<footer style="margin-top:3rem;padding:2rem 1rem;border-top:1px solid rgba(128,128,128,.25);text-align:center;font-size:.85rem;line-height:1.9;opacity:.85;font-family:ui-monospace,Menlo,Consolas,monospace">
+  <div><strong>Related demos:</strong> <a href="https://systemslibrarian.github.io/crypto-lab-kdf-arena/" style="color:#35d6bb">kdf-arena</a> &middot; <a href="https://systemslibrarian.github.io/crypto-lab-bcrypt-forge/" style="color:#35d6bb">bcrypt-forge</a> &middot; <a href="https://systemslibrarian.github.io/crypto-lab-drbg-arena/" style="color:#35d6bb">drbg-arena</a> &middot; <a href="https://systemslibrarian.github.io/crypto-lab-corrupted-oracle/" style="color:#35d6bb">corrupted-oracle</a> &middot; <a href="https://systemslibrarian.github.io/crypto-lab-quantum-vault-kpqc/" style="color:#35d6bb">quantum-vault-kpqc</a></div>
+  <div style="margin-top:.5rem"><a href="https://github.com/systemslibrarian/crypto-lab-phantom-vault" style="color:#35d6bb">Source on GitHub</a> &middot; <a href="https://crypto-lab.systemslibrarian.dev/" style="color:#35d6bb">More crypto-lab demos</a></div>
+  <div style="margin-top:.75rem;opacity:.75">&ldquo;So whether you eat or drink or whatever you do, do it all for the glory of God.&rdquo; &mdash; 1 Corinthians 10:31</div>
+</footer>
   </div>
 
   <dialog id="how-modal" aria-labelledby="how-modal-title">
