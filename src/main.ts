@@ -40,12 +40,41 @@ app.innerHTML = `
     </header>
 
     <main id="main-content">
+    <section class="panel lede" id="intro-panel">
+      <p class="lede-text">
+        <strong>A password manager that stores nothing.</strong> Instead of saving your
+        passwords in a vault, Phantom Vault <em>re-derives</em> them on demand with
+        cryptographic math. The same master passphrase plus a site's details always
+        reproduce the exact same strong password — so there is no database to breach,
+        sync, or back up.
+      </p>
+      <div class="pipeline-flow" aria-label="Derivation pipeline: master passphrase, then PBKDF2, then HMAC-DRBG, then rejection sampling, then password">
+        <span class="flow-node flow-in">Master passphrase + site + version</span>
+        <span class="flow-arrow" aria-hidden="true">→</span>
+        <span class="flow-node">PBKDF2 · 600k</span>
+        <span class="flow-arrow" aria-hidden="true">→</span>
+        <span class="flow-node">HMAC-DRBG</span>
+        <span class="flow-arrow" aria-hidden="true">→</span>
+        <span class="flow-node">Rejection sampling</span>
+        <span class="flow-arrow" aria-hidden="true">→</span>
+        <span class="flow-node flow-out">Your password</span>
+      </div>
+      <p class="lede-hint">
+        <strong>Try it:</strong> derive a password, then bump the <strong>Version</strong>
+        and derive again. Same inputs reproduce it exactly; a new version rotates it —
+        all with nothing stored.
+      </p>
+    </section>
+
     <section class="panel" id="progress-panel">
-      <h2 class="panel-title">Pipeline Status</h2>
+      <div class="panel-title-row">
+        <h2 class="panel-title">Pipeline Status</h2>
+        <span id="pipeline-status" class="status-pill" data-state="ready" role="status" aria-live="polite">Ready</span>
+      </div>
       <div class="progress-track" aria-hidden="true">
         <div id="progress-bar" class="progress-bar"></div>
       </div>
-      <p id="progress-text">Ready.</p>
+      <p id="progress-text">Idle — enter a master passphrase and select <strong>Derive Password</strong> to start.</p>
       <ul id="step-list" class="step-list" aria-live="polite"></ul>
     </section>
 
@@ -87,6 +116,7 @@ const stateMount = requireNode<HTMLDivElement>(app, '#mount-state');
 const proofMount = requireNode<HTMLDivElement>(app, '#mount-proof');
 const progressBar = requireNode<HTMLElement>(app, '#progress-bar');
 const progressText = requireNode<HTMLElement>(app, '#progress-text');
+const pipelineStatus = requireNode<HTMLElement>(app, '#pipeline-status');
 const stepList = requireNode<HTMLElement>(app, '#step-list');
 const openModal = requireNode<HTMLButtonElement>(app, '#open-modal');
 const closeModal = requireNode<HTMLButtonElement>(app, '#close-modal');
@@ -144,8 +174,23 @@ function setupThemeToggle(button: HTMLButtonElement): void {
   });
 }
 
+type PipelineState = 'ready' | 'running' | 'done' | 'error';
+
+const pipelineStateLabels: Record<PipelineState, string> = {
+  ready: 'Ready',
+  running: 'Working…',
+  done: 'Complete',
+  error: 'Error',
+};
+
+function setPipelineState(state: PipelineState): void {
+  pipelineStatus.dataset.state = state;
+  pipelineStatus.textContent = pipelineStateLabels[state];
+}
+
 function setProgress(step: PipelineStep, pct: number): void {
   progressBar.style.width = `${pct}%`;
+  setPipelineState(step === 'complete' && pct === 100 ? 'done' : 'running');
 
   if (step === 'stretching') {
     progressText.textContent = `Stretching passphrase... ${pct}% (this takes 1-3 seconds; high iteration count increases brute-force cost)`;
@@ -200,6 +245,8 @@ async function runDerivation(forProof = false): Promise<void> {
 
   form.setBusy(true);
   proof.setBusy(true);
+  setPipelineState('running');
+  progressBar.style.width = '0%';
 
   try {
     const result = await derivePassword(inputs, setProgress);
@@ -224,6 +271,8 @@ async function runDerivation(forProof = false): Promise<void> {
     const message = error instanceof Error ? error.message : 'Unknown derivation error.';
     form.setError(message);
     output.clear();
+    setPipelineState('error');
+    progressText.textContent = message;
   } finally {
     form.setBusy(false);
     proof.setBusy(false);
