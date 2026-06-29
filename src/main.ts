@@ -66,16 +66,26 @@ app.innerHTML = `
       </p>
     </section>
 
+    <section class="panel" id="how-to-panel">
+      <h2 class="panel-title">How to use</h2>
+      <ol class="how-steps">
+        <li><span class="num">1</span><span>Type a <strong>master passphrase</strong> you can remember — it's the only secret.</span></li>
+        <li><span class="num">2</span><span>Enter the <strong>service</strong> and <strong>username</strong> (e.g. github.com, you@example.com).</span></li>
+        <li><span class="num">3</span><span>Click <strong>Derive Password</strong>. The pipeline below runs and your password appears — nothing is stored.</span></li>
+      </ol>
+    </section>
+
     <section class="panel" id="progress-panel">
       <div class="panel-title-row">
         <h2 class="panel-title">Pipeline Status</h2>
         <span id="pipeline-status" class="status-pill" data-state="ready" role="status" aria-live="polite">Ready</span>
       </div>
+      <p class="helper-text" id="pipeline-intro">These five steps run every time you derive. They stay visible so you can follow exactly what happens to your passphrase.</p>
       <div class="progress-track" aria-hidden="true">
         <div id="progress-bar" class="progress-bar"></div>
       </div>
       <p id="progress-text">Idle — enter a master passphrase and select <strong>Derive Password</strong> to start.</p>
-      <ul id="step-list" class="step-list" aria-live="polite"></ul>
+      <ul id="step-list" class="step-list"></ul>
     </section>
 
     <div id="mount-form"></div>
@@ -134,15 +144,52 @@ stateMount.appendChild(stateDisplay.element);
 proofMount.appendChild(proof.element);
 setupThemeToggle(themeToggle);
 
-const stepDescriptions: Record<PipelineStep, string> = {
-  stretching: 'Passphrase stretched (600,000 PBKDF2-SHA-256 iterations)',
-  instantiating: 'HMAC-DRBG instantiated (SP 800-90A Rev.1 §10.1.2.3)',
-  generating: 'DRBG bytes generated (SP 800-90A Rev.1 §10.1.2.5)',
-  mapping: 'Mapped with rejection sampling (uniform distribution)',
-  complete: 'Password derivation complete',
-};
+interface StepInfo {
+  key: PipelineStep;
+  label: string;
+  plain: string;
+}
+
+// Ordered pipeline steps. `label` is the technical name (with the relevant
+// standard reference); `plain` is a one-line, jargon-free explanation of what
+// the step actually does. Both render together so the steps are legible to
+// newcomers and precise for those who want the spec.
+const STEPS: StepInfo[] = [
+  {
+    key: 'stretching',
+    label: 'PBKDF2 key stretch (600,000 SHA-256 iterations)',
+    plain: 'Hashes your passphrase 600,000 times so each guess an attacker makes is slow and costly.',
+  },
+  {
+    key: 'instantiating',
+    label: 'HMAC-DRBG instantiate (SP 800-90A Rev.1 §10.1.2.3)',
+    plain: 'Seeds a deterministic random-byte generator from that hash.',
+  },
+  {
+    key: 'generating',
+    label: 'Generate DRBG bytes (SP 800-90A Rev.1 §10.1.2.5)',
+    plain: 'Produces a reproducible stream of unpredictable-looking bytes.',
+  },
+  {
+    key: 'mapping',
+    label: 'Rejection sampling',
+    plain: 'Maps those bytes onto your character set evenly, with no bias toward any character.',
+  },
+  {
+    key: 'complete',
+    label: 'Password ready',
+    plain: 'Same inputs always rebuild the same password — so nothing ever needs to be stored.',
+  },
+];
+
+const stepByKey = new Map<PipelineStep, StepInfo>(STEPS.map((step) => [step.key, step]));
 
 const completed = new Set<PipelineStep>();
+let activeStep: PipelineStep | null = null;
+
+// Paint the full pipeline checklist (all steps pending) as soon as the page
+// loads so visitors can see the steps before deriving anything.
+renderSteps();
 
 type Theme = 'dark' | 'light';
 
@@ -188,36 +235,70 @@ function setPipelineState(state: PipelineState): void {
   pipelineStatus.textContent = pipelineStateLabels[state];
 }
 
+function renderSteps(): void {
+  stepList.innerHTML = '';
+  for (const info of STEPS) {
+    const state = completed.has(info.key) ? 'done' : info.key === activeStep ? 'active' : 'pending';
+    const icon = state === 'done' ? '✅' : state === 'active' ? '⏳' : '○';
+
+    const item = document.createElement('li');
+    item.className = 'step-item';
+    item.dataset.state = state;
+
+    const iconNode = document.createElement('span');
+    iconNode.className = 'step-icon';
+    iconNode.setAttribute('aria-hidden', 'true');
+    iconNode.textContent = icon;
+
+    const body = document.createElement('span');
+    body.className = 'step-body';
+
+    const label = document.createElement('span');
+    label.className = 'step-label';
+    label.textContent = info.label;
+
+    const plain = document.createElement('span');
+    plain.className = 'step-plain';
+    plain.textContent = info.plain;
+
+    body.append(label, plain);
+    item.append(iconNode, body);
+    stepList.appendChild(item);
+  }
+}
+
+function resetProgress(): void {
+  completed.clear();
+  activeStep = null;
+  progressBar.style.width = '0%';
+  progressText.textContent = 'Idle — enter a master passphrase and select Derive Password to start.';
+  setPipelineState('ready');
+  renderSteps();
+}
+
 function setProgress(step: PipelineStep, pct: number): void {
   progressBar.style.width = `${pct}%`;
+  activeStep = step;
   setPipelineState(step === 'complete' && pct === 100 ? 'done' : 'running');
-
-  if (step === 'stretching') {
-    progressText.textContent = `Stretching passphrase... ${pct}% (this takes 1-3 seconds; high iteration count increases brute-force cost)`;
-  } else {
-    progressText.textContent = stepDescriptions[step];
-  }
 
   if (pct === 100) {
     completed.add(step);
   }
 
-  stepList.innerHTML = '';
-  for (const key of ['stretching', 'instantiating', 'generating', 'mapping', 'complete'] as PipelineStep[]) {
-    if (!completed.has(key)) {
-      continue;
-    }
-    const item = document.createElement('li');
-    item.textContent = `✅ ${stepDescriptions[key]}`;
-    stepList.appendChild(item);
+  if (step === 'stretching' && pct < 100) {
+    progressText.textContent = `Stretching passphrase... ${pct}% (this takes 1-3 seconds; high iteration count increases brute-force cost)`;
+  } else {
+    progressText.textContent = stepByKey.get(step)?.label ?? 'Working...';
   }
+
+  renderSteps();
 }
 
 async function runDerivation(forProof = false): Promise<void> {
   form.setError('');
   form.setWarning('');
   output.setStatus('');
-  completed.clear();
+  resetProgress();
 
   const inputs = form.getInputs();
 
