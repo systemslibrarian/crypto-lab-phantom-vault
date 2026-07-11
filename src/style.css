@@ -11,6 +11,11 @@
   --muted: #a6bad8;
   --accent: #3d8ef8;
   --accent-soft: rgba(61, 142, 248, 0.2);
+  /* Fill + ink for solid accent buttons. The bright --accent is reserved for
+     borders, focus rings, and accent text; the button uses a darker fill so
+     white ink clears 4.5:1 (WCAG AA). */
+  --accent-btn: #1e5fbf;
+  --on-accent: #ffffff;
   --amber: #f0a742;
   --danger: #f06158;
   --success: #35d6a0;
@@ -27,6 +32,8 @@ html[data-theme='light'] {
   --muted: #3f5677;
   --accent: #2f6fca;
   --accent-soft: rgba(47, 111, 202, 0.16);
+  --accent-btn: #1f5aad;
+  --on-accent: #ffffff;
   --amber: #b87a1f;
   --danger: #b9403a;
   --success: #1c8c5f;
@@ -302,8 +309,8 @@ summary:focus-visible {
 }
 
 .action-button {
-  background: var(--accent);
-  color: var(--text);
+  background: var(--accent-btn);
+  color: var(--on-accent);
 }
 
 .ghost-button,

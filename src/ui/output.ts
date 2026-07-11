@@ -40,7 +40,7 @@ export function createOutput(): OutputController {
   wrapper.innerHTML = `
     <h2 class="panel-title">Password</h2>
     <div class="password-box">
-      <input id="password-value" type="password" readonly autocomplete="off" />
+      <input id="password-value" type="password" readonly autocomplete="off" aria-label="Derived password" />
       <button type="button" id="reveal-password" class="small-button">Reveal</button>
       <button type="button" id="copy-password" class="small-button">Copy</button>
     </div>
