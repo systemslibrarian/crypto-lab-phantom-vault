@@ -20,26 +20,42 @@ function requireNode<T extends Element>(parent: ParentNode, selector: string): T
 }
 
 app.innerHTML = `
-  <a class="skip-link" href="#main-content">Skip to content</a>
   <div class="shell">
-    <header class="app-header">
-      <div>
-        <h1>◈ PHANTOM VAULT</h1>
-        <p>No database. No cloud. Pure math.</p>
+    <main id="main-content">
+    <header class="cl-hero">
+      <div class="cl-hero-main">
+        <h1 class="cl-hero-title">Phantom Vault</h1>
+        <p class="cl-hero-sub">Stateless password derivation · PBKDF2 → HMAC-DRBG → rejection sampling</p>
+        <p class="cl-hero-desc">
+          Regenerate a site-specific password on demand from a master passphrase plus
+          context, watching PBKDF2 key-stretch, HMAC-DRBG, and rejection sampling build
+          it step by step — with nothing stored.
+        </p>
       </div>
+      <aside class="cl-hero-why" aria-label="Why it matters">
+        <span class="cl-hero-why-label">WHY IT MATTERS</span>
+        <p class="cl-hero-why-text">
+          A vault you never store is a vault no one can breach or sync. Bump the version to
+          rotate a leaked password, and context keeps each site independent — but effective
+          strength is capped by your master passphrase.
+        </p>
+      </aside>
+    </header>
+
+    <div class="header-actions">
       <button type="button" class="ghost-button" id="open-modal">How It Works</button>
       <button
         type="button"
         class="theme-toggle"
         id="theme-toggle"
-        style="position: absolute; top: 0; right: 0"
+        hidden
+        aria-hidden="true"
         aria-label="Switch to light mode"
       >
         🌙
       </button>
-    </header>
+    </div>
 
-    <main id="main-content">
     <section class="panel lede" id="intro-panel">
       <p class="lede-text">
         <strong>A password manager that stores nothing.</strong> Instead of saving your
