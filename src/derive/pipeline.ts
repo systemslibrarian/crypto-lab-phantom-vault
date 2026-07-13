@@ -51,6 +51,15 @@ export async function derivePassword(
   const charset = buildCharset(inputs.charset);
   let rejectionCount = 0;
   let attempts = 0;
+  // Genuine DRBG byte values examined while mapping, captured so the
+  // distribution exhibit plots the real run (never a fabricated histogram).
+  const sampledBytes: number[] = [];
+  const recordBytes = (bytes: Uint8Array): void => {
+    for (const value of bytes) {
+      sampledBytes.push(value);
+    }
+  };
+  recordBytes(candidateBytes);
 
   while (attempts < 16) {
     attempts += 1;
@@ -60,6 +69,7 @@ export async function derivePassword(
       state = more.state;
       snapshots.push(more.snapshot);
       bytesGenerated += more.bytes.length;
+      recordBytes(more.bytes);
       return more.bytes;
     });
 
@@ -80,6 +90,7 @@ export async function derivePassword(
         pbkdf2Iterations: seedResult.iterations,
         bytesGenerated,
         rejectionCount,
+        sampledBytes,
         meta,
       };
     }
@@ -88,6 +99,7 @@ export async function derivePassword(
     state = refresh.state;
     snapshots.push(refresh.snapshot);
     bytesGenerated += refresh.bytes.length;
+    recordBytes(refresh.bytes);
     candidateBytes = refresh.bytes;
   }
 

@@ -10,6 +10,17 @@ export interface FormController {
   setWarning: (message: string) => void;
   onDerive: (handler: () => void) => void;
   onProof: (handler: () => void) => void;
+  /** Fires whenever any input the entropy readout depends on changes. */
+  onInputChange: (handler: () => void) => void;
+  /**
+   * Overwrites passphrase + length + every charset toggle in one shot (used by
+   * the "Try a weak passphrase" teaching preset). Fires onInputChange listeners.
+   */
+  applyPreset: (preset: {
+    masterPassphrase: string;
+    length: number;
+    charset: CharsetConfig;
+  }) => void;
 }
 
 function requireNode<T extends Element>(parent: ParentNode, selector: string): T {
@@ -105,6 +116,13 @@ export function createForm(): FormController {
     charsetInputs.symbols,
   ];
 
+  const inputChangeHandlers: Array<() => void> = [];
+  const emitInputChange = (): void => {
+    for (const handler of inputChangeHandlers) {
+      handler();
+    }
+  };
+
   for (const checkbox of checkboxes) {
     checkbox.addEventListener('change', () => {
       const enabledCount = checkboxes.filter((entry) => entry.checked).length;
@@ -115,8 +133,15 @@ export function createForm(): FormController {
       for (const item of checkboxes) {
         item.disabled = item.checked && checkboxes.filter((entry) => entry.checked).length === 1;
       }
+
+      emitInputChange();
     });
   }
+
+  // The entropy-cap exhibit updates live as the learner drags length or types a
+  // passphrase, so surface those edits too (not just charset toggles).
+  passphraseInput.addEventListener('input', emitInputChange);
+  lengthInput.addEventListener('input', emitInputChange);
 
   toggleButton.addEventListener('click', () => {
     const hidden = passphraseInput.type === 'password';
@@ -183,6 +208,31 @@ export function createForm(): FormController {
     proofButton.addEventListener('click', handler);
   }
 
+  function onInputChange(handler: () => void): void {
+    inputChangeHandlers.push(handler);
+  }
+
+  function applyPreset(preset: {
+    masterPassphrase: string;
+    length: number;
+    charset: CharsetConfig;
+  }): void {
+    passphraseInput.value = preset.masterPassphrase;
+    lengthInput.value = String(preset.length);
+    charsetInputs.lower.checked = preset.charset.lowercase;
+    charsetInputs.upper.checked = preset.charset.uppercase;
+    charsetInputs.digits.checked = preset.charset.digits;
+    charsetInputs.symbols.checked = preset.charset.symbols;
+
+    // Re-apply the "last class can't be unchecked" disabled state.
+    const enabled = checkboxes.filter((entry) => entry.checked).length;
+    for (const item of checkboxes) {
+      item.disabled = item.checked && enabled === 1;
+    }
+
+    emitInputChange();
+  }
+
   return {
     element: wrapper,
     getInputs,
@@ -193,5 +243,7 @@ export function createForm(): FormController {
     setWarning,
     onDerive,
     onProof,
+    onInputChange,
+    applyPreset,
   };
 }

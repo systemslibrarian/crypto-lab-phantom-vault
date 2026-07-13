@@ -21,6 +21,13 @@ The demo derives passwords in-browser from a master passphrase plus service cont
 
 The strength readout reports **effective entropy** as `min(master-passphrase entropy, output-format ceiling)`, not the format ceiling alone. This is the central lesson of deterministic derivation: the output can never hold more entropy than the secret it started from, so a weak passphrase caps the result no matter how long the password or how large the charset.
 
+Four interactive exhibits let you *feel* that lesson rather than just read it:
+
+1. **The entropy cap.** A two-bar chart plots the format ceiling against effective entropy on a shared scale, with a dashed line marking the master-passphrase entropy. Drag **Length** and toggle character classes and watch the ceiling climb while the effective bar refuses to cross the passphrase line. A one-click **"Try a weak passphrase (`password123`)"** preset cranks every knob to maximum and shows the cap holding firm.
+2. **Seeing modulo bias.** Two side-by-side histograms, built from the *actual DRBG bytes this run produced*, contrast a naive `byte % N` map (low positions get an extra hit — visible bias) against rejection sampling (flat). Rejected bytes and the favoured positions are highlighted, so the bias you read about is the bias you see removed.
+3. **The DRBG ratchet.** Each `Generate` call is shown stepping the internal state forward — `K,V (before) → HMAC → K,V (after)` — with a plain-language note that **K** is the current HMAC key and **V** the running value, making "reproducible yet non-repeating" tangible.
+4. **Prove It.** The panel runs the real derivation several times with controlled input changes and tabulates the outputs with a pass/fail verdict, proving all three behavioral claims live: determinism (same inputs → same password), rotation (new `version` → new password), and context separation (different `service` → different password).
+
 ## What Can Go Wrong
 
 - Master passphrase compromise cascades globally: if an attacker learns the passphrase, every derived credential can be regenerated.

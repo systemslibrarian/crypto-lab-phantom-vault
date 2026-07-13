@@ -5,6 +5,8 @@ import { createForm } from './ui/form';
 import { createOutput } from './ui/output';
 import { createProof } from './ui/proof';
 import { createStateDisplay } from './ui/state-display';
+import { createEntropyCap, WEAK_PRESET } from './ui/entropy-cap';
+import { createDistribution } from './ui/distribution';
 
 const app = document.querySelector<HTMLDivElement>('#app');
 if (!app) {
@@ -106,7 +108,9 @@ app.innerHTML = `
 
     <div id="mount-form"></div>
     <div id="mount-output"></div>
+    <div id="mount-entropy-cap"></div>
     <div id="mount-state"></div>
+    <div id="mount-distribution"></div>
     <div id="mount-proof"></div>
     </main>
 <footer style="margin-top:3rem;padding:2rem 1rem;border-top:1px solid rgba(128,128,128,.25);text-align:center;font-size:.85rem;line-height:1.9;opacity:.85;font-family:ui-monospace,Menlo,Consolas,monospace">
@@ -138,7 +142,9 @@ app.innerHTML = `
 
 const formMount = requireNode<HTMLDivElement>(app, '#mount-form');
 const outputMount = requireNode<HTMLDivElement>(app, '#mount-output');
+const entropyCapMount = requireNode<HTMLDivElement>(app, '#mount-entropy-cap');
 const stateMount = requireNode<HTMLDivElement>(app, '#mount-state');
+const distributionMount = requireNode<HTMLDivElement>(app, '#mount-distribution');
 const proofMount = requireNode<HTMLDivElement>(app, '#mount-proof');
 const progressBar = requireNode<HTMLElement>(app, '#progress-bar');
 const progressText = requireNode<HTMLElement>(app, '#progress-text');
@@ -151,14 +157,35 @@ const themeToggle = requireNode<HTMLButtonElement>(app, '#theme-toggle');
 
 const form = createForm();
 const output = createOutput();
+const entropyCap = createEntropyCap();
 const stateDisplay = createStateDisplay();
+const distribution = createDistribution();
 const proof = createProof();
 
 formMount.appendChild(form.element);
 outputMount.appendChild(output.element);
+entropyCapMount.appendChild(entropyCap.element);
 stateMount.appendChild(stateDisplay.element);
+distributionMount.appendChild(distribution.element);
 proofMount.appendChild(proof.element);
 setupThemeToggle(themeToggle);
+
+// Live entropy-cap exhibit: recompute the two bars from the current form inputs
+// on every edit, so the learner watches the ceiling climb while effective
+// entropy stays pinned by the passphrase — without needing to derive.
+function refreshEntropyCap(): void {
+  const inputs = form.getInputs();
+  entropyCap.update({
+    masterPassphrase: inputs.masterPassphrase,
+    length: inputs.length,
+    charset: inputs.charset,
+  });
+}
+form.onInputChange(refreshEntropyCap);
+entropyCap.onWeakPreset(() => {
+  form.applyPreset(WEAK_PRESET);
+});
+refreshEntropyCap();
 
 interface StepInfo {
   key: PipelineStep;
@@ -351,6 +378,7 @@ async function runDerivation(forProof = false): Promise<void> {
     const passphraseEntropyBits = estimatePassphraseEntropyBits(inputs.masterPassphrase);
     output.setOutput(result.password, charset.length, inputs.length, passphraseEntropyBits);
     stateDisplay.setStates(result.drbgStates, result.bytesGenerated, result.rejectionCount);
+    distribution.render(result.sampledBytes, charset.length);
 
     const generateCalls = Math.max(0, result.drbgStates.length - 1);
     output.setStatus(`Generated ${result.bytesGenerated} bytes across ${generateCalls} DRBG generate call(s).`);
@@ -368,6 +396,7 @@ async function runDerivation(forProof = false): Promise<void> {
     const message = error instanceof Error ? error.message : 'Unknown derivation error.';
     form.setError(message);
     output.clear();
+    distribution.clear();
     setPipelineState('error');
     progressText.textContent = message;
   } finally {

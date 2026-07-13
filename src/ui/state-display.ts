@@ -33,10 +33,14 @@ export function createStateDisplay(): StateDisplay {
     <details>
       <summary>HMAC-DRBG State Machine</summary>
       <p class="helper-text state-intro">
-        Each <code>Generate</code> call ratchets the internal state forward: a fresh key
-        <strong>K</strong> and value <strong>V</strong> per NIST SP 800-90A Rev.1. The state is
-        never reused, so the byte stream is reproducible yet non-repeating.
+        <strong>K</strong> and <strong>V</strong> are the generator's evolving internal memory:
+        <strong>K</strong> is the current HMAC key, <strong>V</strong> the running value it hashes.
+        Each <code>Generate</code> call feeds them through HMAC to produce a fresh
+        <strong>K</strong>,<strong>V</strong> (per NIST SP 800-90A Rev.1) — old state is never
+        reused, so the byte stream is reproducible yet non-repeating. Watch them step forward:
       </p>
+      <div id="ratchet" class="ratchet" aria-hidden="true"></div>
+      <p class="helper-text ratchet-caption" id="ratchet-caption"></p>
       <div id="state-list" class="state-list"></div>
       <details class="rejection-note">
         <summary>Why are bytes rejected?</summary>
@@ -53,8 +57,52 @@ export function createStateDisplay(): StateDisplay {
   `;
 
   const list: HTMLElement = requireNode<HTMLElement>(wrapper, '#state-list');
+  const ratchet: HTMLElement = requireNode<HTMLElement>(wrapper, '#ratchet');
+  const ratchetCaption: HTMLElement = requireNode<HTMLElement>(wrapper, '#ratchet-caption');
+
+  function shortHex(value: string): string {
+    return value.length <= 12 ? value : `${value.slice(0, 6)}…${value.slice(-4)}`;
+  }
+
+  // Show the last transition K,V(before) --HMAC--> K,V(after) so "same seed
+  // walks the same path" is visible rather than asserted. Uses two real
+  // consecutive snapshots from this run; no values are invented.
+  function renderRatchet(states: DRBGState[]): void {
+    ratchet.innerHTML = '';
+    if (states.length < 2) {
+      ratchetCaption.textContent = '';
+      return;
+    }
+    const before = states[states.length - 2];
+    const after = states[states.length - 1];
+
+    ratchet.innerHTML = `
+      <div class="ratchet-node ratchet-before">
+        <span class="ratchet-tag">before</span>
+        <span class="ratchet-kv"><strong>K</strong> ${shortHex(before.K)}</span>
+        <span class="ratchet-kv"><strong>V</strong> ${shortHex(before.V)}</span>
+      </div>
+      <div class="ratchet-op" aria-hidden="true">
+        <span class="ratchet-arrow">→</span>
+        <span class="ratchet-hmac">HMAC</span>
+        <span class="ratchet-arrow">→</span>
+      </div>
+      <div class="ratchet-node ratchet-after">
+        <span class="ratchet-tag">after</span>
+        <span class="ratchet-kv"><strong>K</strong> ${shortHex(after.K)}</span>
+        <span class="ratchet-kv"><strong>V</strong> ${shortHex(after.V)}</span>
+      </div>
+    `;
+    // Restart the flow animation on each derive by re-adding the class.
+    ratchet.classList.remove('ratchet-run');
+    void ratchet.offsetWidth;
+    ratchet.classList.add('ratchet-run');
+    ratchetCaption.textContent =
+      'Same seed always walks the same path: identical inputs reproduce this exact K,V sequence every time.';
+  }
 
   function setStates(states: DRBGState[], generatedBytes: number, rejected: number): void {
+    renderRatchet(states);
     list.innerHTML = '';
 
     for (const [index, state] of states.entries()) {

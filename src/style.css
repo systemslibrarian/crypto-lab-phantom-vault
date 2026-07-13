@@ -613,6 +613,283 @@ summary {
   margin-top: 0.6rem;
 }
 
+/* ===== Entropy-cap exhibit ===== */
+.cap-chart {
+  margin-top: 0.85rem;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.cap-row {
+  display: grid;
+  grid-template-columns: 8.5rem 1fr auto;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.cap-name {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.cap-track {
+  position: relative;
+  height: 16px;
+  border-radius: 99px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.cap-bar {
+  height: 100%;
+  width: 0;
+  border-radius: 99px;
+  transition: width 0.25s ease;
+}
+
+.cap-bar-ceiling {
+  background: linear-gradient(90deg, var(--panel-soft), var(--accent));
+}
+
+.cap-bar-effective {
+  background: linear-gradient(90deg, var(--accent) 0%, var(--success) 100%);
+}
+
+.cap-bar-effective[data-capped='true'] {
+  background: linear-gradient(90deg, var(--amber) 0%, var(--danger) 100%);
+}
+
+/* The dashed cap line sits above the track and marks passphrase entropy. It is
+   inside .cap-track (overflow:hidden) but rendered tall enough to read. */
+.cap-line {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 2px;
+  left: 0;
+  background: repeating-linear-gradient(
+    to bottom,
+    var(--text) 0,
+    var(--text) 3px,
+    transparent 3px,
+    transparent 6px
+  );
+  transition: left 0.25s ease, opacity 0.2s ease;
+}
+
+.cap-value {
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  color: var(--text);
+  min-width: 4.5rem;
+  text-align: right;
+}
+
+.cap-caption {
+  margin: 0.15rem 0 0;
+  font-size: 0.82rem;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.cap-actions {
+  margin-top: 0.8rem;
+}
+
+.cap-verdict {
+  margin-top: 0.6rem;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+/* ===== Distribution histograms ===== */
+.dist-grid {
+  margin-top: 0.85rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.9rem;
+}
+
+.dist-cell {
+  margin: 0;
+  padding: 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  display: grid;
+  gap: 0.5rem;
+}
+
+.dist-cap {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* Colour is carried by a swatch (a graphical element, held to the 3:1 non-text
+   contrast bar) so the label text can stay full --text contrast in both themes. */
+.dist-cap::before {
+  content: '';
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 3px;
+  flex: 0 0 auto;
+}
+
+.dist-cap-biased::before {
+  background: var(--amber);
+}
+
+.dist-cap-flat::before {
+  background: var(--success);
+}
+
+.dist-cap code {
+  font-family: var(--mono);
+  font-size: 0.85em;
+}
+
+.dist-svg {
+  width: 100%;
+  height: 64px;
+  display: block;
+  background: var(--panel-soft);
+  border-radius: 6px;
+}
+
+.dist-bar {
+  fill: var(--accent);
+}
+
+.dist-bar-tall {
+  fill: var(--amber);
+}
+
+.dist-note {
+  font-size: 0.8rem;
+  color: var(--muted);
+  line-height: 1.4;
+  margin: 0;
+}
+
+.dist-note strong {
+  color: var(--text);
+  font-family: var(--mono);
+}
+
+.dist-summary {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.dist-empty {
+  grid-column: 1 / -1;
+}
+
+/* ===== DRBG ratchet ===== */
+.ratchet {
+  margin-top: 0.7rem;
+  display: flex;
+  align-items: stretch;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.ratchet-node {
+  flex: 1 1 8rem;
+  min-width: 8rem;
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  font-family: var(--mono);
+  font-size: 0.82rem;
+}
+
+.ratchet-after {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.ratchet-tag {
+  font-family: var(--sans);
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.ratchet-kv strong {
+  color: var(--accent);
+}
+
+.ratchet-op {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  align-self: center;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.85rem;
+}
+
+.ratchet-hmac {
+  padding: 0.15rem 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  background: var(--panel-soft);
+}
+
+.ratchet-arrow {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.ratchet-run .ratchet-after {
+  animation: ratchet-in 0.5s ease;
+}
+
+.ratchet-caption {
+  margin-top: 0.4rem;
+  font-size: 0.82rem;
+}
+
+@keyframes ratchet-in {
+  0% {
+    opacity: 0.35;
+    transform: translateX(-6px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@media (max-width: 760px) {
+  .dist-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .cap-row {
+    grid-template-columns: 6rem 1fr auto;
+  }
+
+  .cap-value {
+    min-width: 3.5rem;
+  }
+}
+
 dialog {
   width: min(760px, 100% - 1.5rem);
   border-radius: 12px;
