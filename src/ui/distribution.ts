@@ -1,8 +1,8 @@
 export interface DistributionController {
   element: HTMLElement;
   /**
-   * Render both histograms from the genuine DRBG bytes this run produced.
-   * `charsetSize` is N (the character-set size the bytes were mapped onto).
+   * Render the exact mapping frequencies over the complete 256-byte input
+   * domain. `sampledBytes` is used only for an explicitly labelled run note.
    */
   render: (sampledBytes: number[], charsetSize: number) => void;
   clear: () => void;
@@ -17,13 +17,12 @@ function requireNode<T extends Element>(parent: ParentNode, selector: string): T
 }
 
 /**
- * Count how each real byte lands under two mapping strategies.
+ * Count how every possible byte lands under two mapping strategies.
  *  - naive:     value % N for EVERY byte (this is what introduces modulo bias)
  *  - rejection: value % N only for bytes below floor(256/N)*N; the rest are
  *               counted as rejected (this is what the pipeline actually does)
  */
 function tallies(
-  bytes: number[],
   n: number,
 ): { naive: number[]; rejection: number[]; rejected: number } {
   const naive = new Array<number>(n).fill(0);
@@ -31,7 +30,7 @@ function tallies(
   const threshold = Math.floor(256 / n) * n;
   let rejected = 0;
 
-  for (const value of bytes) {
+  for (let value = 0; value < 256; value += 1) {
     naive[value % n] += 1;
     if (value >= threshold) {
       rejected += 1;
@@ -69,15 +68,15 @@ export function createDistribution(): DistributionController {
   wrapper.innerHTML = `
     <h2 class="panel-title">Seeing modulo bias — and watching it vanish</h2>
     <p class="helper-text">
-      Both charts below are built from the <strong>same real DRBG bytes this run produced</strong>,
-      binned by which character position they land on. The naive
-      <code>byte % N</code> map (left) leans on the low positions, because 256 rarely divides
-      evenly by <em>N</em>. Rejection sampling (right) throws away the few bytes in the uneven
-      tail, leaving a flat, unbiased distribution — the same map this demo actually uses.
+      Both charts enumerate all <strong>256 possible byte values</strong>, binned by which
+      character position they land on. Their shape is exact rather than an inference
+      from this run's small random sample. The naive <code>byte % N</code> map (left) favours
+      low positions whenever 256 does not divide evenly by <em>N</em>. Rejection sampling
+      (right) discards the uneven tail, giving every position the same number of inputs.
     </p>
 
     <div class="dist-grid" id="dist-grid">
-      <p class="helper-text dist-empty" id="dist-empty">Derive a password to plot this run's byte distribution.</p>
+      <p class="helper-text dist-empty" id="dist-empty">Derive a password to reveal the exact mapping comparison and this run's observation.</p>
     </div>
   `;
 
@@ -90,7 +89,7 @@ export function createDistribution(): DistributionController {
       return;
     }
 
-    const { naive, rejection, rejected } = tallies(sampledBytes, n);
+    const { naive, rejection, rejected } = tallies(n);
     const threshold = Math.floor(256 / n) * n;
     // Positions that receive an EXTRA hit from wrap-around are the biased ones:
     // values [threshold, 256) land on positions [0, 256 - threshold).
@@ -101,46 +100,39 @@ export function createDistribution(): DistributionController {
     }
 
     const max = Math.max(1, ...naive, ...rejection);
-    const total = sampledBytes.length;
-
-    // Chi-square-style spread readout so a professional reader gets a number,
-    // not just a picture: mean absolute deviation from the flat expectation.
-    const expNaive = total / n;
-    const madNaive =
-      naive.reduce((sum, c) => sum + Math.abs(c - expNaive), 0) / n;
-    const accepted = total - rejected;
-    const expRej = accepted / n;
-    const madRej =
-      rejection.reduce((sum, c) => sum + Math.abs(c - expRej), 0) / n;
+    const baseHits = Math.floor(256 / n);
+    const favoredHits = baseHits + 1;
+    const observedRejected = sampledBytes.filter((value) => value >= threshold).length;
 
     grid.innerHTML = `
       <figure class="dist-cell">
         <figcaption class="dist-cap dist-cap-biased">Naive <code>byte % ${n}</code> — biased</figcaption>
         ${buildChart(naive, max, biasedIndices)}
         <p class="dist-note">
-          Low positions (highlighted) get an extra hit each. Mean deviation from flat:
-          <strong>${madNaive.toFixed(1)}</strong>.
+          Each highlighted low position receives <strong>${favoredHits} of 256</strong>
+          possible byte values; every other position receives ${baseHits}.
         </p>
       </figure>
       <figure class="dist-cell">
         <figcaption class="dist-cap dist-cap-flat">Rejection sampling — uniform</figcaption>
         ${buildChart(rejection, max, new Set())}
         <p class="dist-note">
-          ${rejected} of ${total} bytes rejected. Mean deviation from flat:
-          <strong>${madRej.toFixed(1)}</strong>.
+          Reject byte values ${threshold}–255 (${rejected} values). Each position then
+          receives exactly <strong>${baseHits} of ${threshold}</strong> accepted values.
         </p>
       </figure>
       <p class="dist-summary" role="status" aria-live="polite">
-        From ${total} real DRBG bytes over an ${n}-character set (reject at ≥ ${threshold}):
-        the naive map favours ${extraHitCount} low position${extraHitCount === 1 ? '' : 's'}
-        (deviation ${madNaive.toFixed(1)}); rejection sampling flattens it (deviation ${madRej.toFixed(1)}).
+        Exact 256-value mapping for an ${n}-character set: the naive map favours
+        ${extraHitCount} low position${extraHitCount === 1 ? '' : 's'}; rejection sampling
+        gives every position ${baseHits} inputs. Run observation (not a statistical proof):
+        ${observedRejected} of this run's ${sampledBytes.length} generated bytes fell in the rejected tail.
       </p>
     `;
   }
 
   function clear(): void {
     grid.innerHTML =
-      '<p class="helper-text dist-empty" id="dist-empty">Derive a password to plot this run\'s byte distribution.</p>';
+      '<p class="helper-text dist-empty" id="dist-empty">Derive a password to reveal the exact mapping comparison and this run\'s observation.</p>';
   }
 
   return {
