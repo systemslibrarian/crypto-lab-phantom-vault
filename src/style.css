@@ -7,6 +7,7 @@
   --panel: #0f1624;
   --panel-soft: #131d30;
   --border: #1f314f;
+  --control-border: #647a9d;
   --text: #dde8fb;
   --muted: #a6bad8;
   --accent: #3d8ef8;
@@ -28,6 +29,7 @@ html[data-theme='light'] {
   --panel: #ffffff;
   --panel-soft: #eef3fb;
   --border: #b7c7df;
+  --control-border: #6c7d97;
   --text: #16263d;
   --muted: #3f5677;
   --accent: #2f6fca;
@@ -276,7 +278,7 @@ dialog {
 input {
   width: 100%;
   background: var(--panel);
-  border: 1px solid var(--border);
+  border: 1px solid var(--control-border);
   color: var(--text);
   border-radius: 8px;
   min-height: 44px;
