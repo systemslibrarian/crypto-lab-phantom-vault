@@ -17,6 +17,31 @@ async function derive(page: Page, passphrase: string, service: string): Promise<
   return password;
 }
 
+/**
+ * Derive when the expected result may be IDENTICAL to what is already on screen
+ * (re-deriving the same inputs is deterministic, so `derive`'s wait-for-change
+ * never fires). Blanks the readout first, then waits for the page to write a
+ * value back into it. The value compared is still entirely the page's own.
+ */
+async function deriveAgain(page: Page, passphrase: string, service: string): Promise<string> {
+  const field = page.locator('#password-value');
+  await field.evaluate((el) => {
+    (el as HTMLInputElement).value = '';
+  });
+  await expect(field).toHaveValue('');
+
+  await page.fill('#master-passphrase', passphrase);
+  await page.fill('#service', service);
+  await page.fill('#username', 'you@example.com');
+  await page.click('#derive-button');
+
+  await expect(field).not.toHaveValue('', { timeout: 60_000 });
+  await expect(page.locator('#pipeline-status')).toHaveAttribute('data-state', 'done');
+  const password = await field.inputValue();
+  expect(password).toHaveLength(20);
+  return password;
+}
+
 async function runAttack(page: Page): Promise<void> {
   await page.click('#crack-run');
   await expect(page.locator('[data-crack-verdict]')).toBeVisible({ timeout: 60_000 });
@@ -83,6 +108,21 @@ test('break-it panel genuinely fails outside the wordlist, and the same credenti
   );
   await expect(page.locator('[data-crack-recovered]')).toHaveText(STRONG);
   await expect(page.locator('[data-crack-pivot]')).not.toHaveText(stolen);
+
+  // Tie the FAILURE verdict to values the page computed, not just to its copy.
+  // The credential the search exhausted against was a perfectly crackable one —
+  // the miss was about the wordlist and nothing else. Prove that by having the
+  // vault itself re-derive, on screen, both the credential the attack failed on
+  // and the pivot the attack went on to predict once the list contained the
+  // passphrase. Every value compared here was produced by the page.
+  const pivotService = await page.locator('[data-crack-pivot-service]').innerText();
+  const pivotPassword = await page.locator('[data-crack-pivot]').innerText();
+
+  const reDerivedStolen = await deriveAgain(page, STRONG, 'github.com');
+  expect(reDerivedStolen).toBe(stolen);
+
+  const reDerivedPivot = await deriveAgain(page, STRONG, pivotService);
+  expect(reDerivedPivot).toBe(pivotPassword);
 });
 
 test('modulo-bias panel uses exact byte-domain counts and labels run data as observation', async ({ page }) => {
