@@ -975,3 +975,47 @@ dialog ol {
     scroll-behavior: auto !important;
   }
 }
+
+/* ── Break-it panel: offline dictionary attack on the master passphrase ───── */
+.crack-label {
+  display: block;
+  margin: 1rem 0 0.4rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.crack-wordlist {
+  width: 100%;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  padding: 0.6rem 0.7rem;
+  border-radius: 8px;
+  border: 1px solid var(--border, rgba(128, 128, 128, 0.45));
+  background: var(--surface-2, rgba(128, 128, 128, 0.08));
+  color: inherit;
+  resize: vertical;
+}
+.crack-result { margin-top: 0.75rem; }
+.crack-verdict {
+  margin: 0 0 0.6rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: 8px;
+  border: 1px solid var(--border, rgba(128, 128, 128, 0.45));
+  font-weight: 700;
+  line-height: 1.6;
+}
+.crack-broken { border-left: 4px solid #ff6b7f; }
+.crack-held { border-left: 4px solid #35d6bb; }
+.crack-detail,
+.crack-metric {
+  margin: 0 0 0.55rem;
+  font-size: 0.88rem;
+  line-height: 1.65;
+}
+.crack-secret {
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  word-break: break-all;
+  padding: 0.1rem 0.3rem;
+  border-radius: 4px;
+  background: var(--surface-2, rgba(128, 128, 128, 0.14));
+}

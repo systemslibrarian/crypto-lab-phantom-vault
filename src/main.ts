@@ -7,6 +7,7 @@ import { createProof } from './ui/proof';
 import { createStateDisplay } from './ui/state-display';
 import { createEntropyCap, WEAK_PRESET } from './ui/entropy-cap';
 import { createDistribution } from './ui/distribution';
+import { createCracker } from './ui/cracker';
 
 const app = document.querySelector<HTMLDivElement>('#app');
 if (!app) {
@@ -109,6 +110,7 @@ app.innerHTML = `
     <div id="mount-form"></div>
     <div id="mount-output"></div>
     <div id="mount-entropy-cap"></div>
+    <div id="mount-cracker"></div>
     <div id="mount-state"></div>
     <div id="mount-distribution"></div>
     <div id="mount-proof"></div>
@@ -144,6 +146,7 @@ const formMount = requireNode<HTMLDivElement>(app, '#mount-form');
 const outputMount = requireNode<HTMLDivElement>(app, '#mount-output');
 const entropyCapMount = requireNode<HTMLDivElement>(app, '#mount-entropy-cap');
 const stateMount = requireNode<HTMLDivElement>(app, '#mount-state');
+const crackerMount = requireNode<HTMLDivElement>(app, '#mount-cracker');
 const distributionMount = requireNode<HTMLDivElement>(app, '#mount-distribution');
 const proofMount = requireNode<HTMLDivElement>(app, '#mount-proof');
 const progressBar = requireNode<HTMLElement>(app, '#progress-bar');
@@ -160,12 +163,14 @@ const output = createOutput();
 const entropyCap = createEntropyCap();
 const stateDisplay = createStateDisplay();
 const distribution = createDistribution();
+const cracker = createCracker();
 const proof = createProof();
 
 formMount.appendChild(form.element);
 outputMount.appendChild(output.element);
 entropyCapMount.appendChild(entropyCap.element);
 stateMount.appendChild(stateDisplay.element);
+crackerMount.appendChild(cracker.element);
 distributionMount.appendChild(distribution.element);
 proofMount.appendChild(proof.element);
 setupThemeToggle(themeToggle);
@@ -369,6 +374,7 @@ async function runDerivation(forProof = false): Promise<void> {
 
   form.setBusy(true);
   proof.setBusy(true);
+  cracker.setBusy(true);
   setPipelineState('running');
   progressBar.style.width = '0%';
 
@@ -379,6 +385,17 @@ async function runDerivation(forProof = false): Promise<void> {
     output.setOutput(result.password, charset.length, inputs.length, passphraseEntropyBits);
     stateDisplay.setStates(result.drbgStates, result.bytesGenerated, result.rejectionCount);
     distribution.render(result.sampledBytes, charset.length);
+    // Hand the attack panel exactly what an attacker would hold after this
+    // derivation: the derived password and the public context, never the
+    // passphrase (which form.clearSensitive() wipes a few lines below).
+    cracker.arm({
+      password: result.password,
+      service: inputs.service,
+      username: inputs.username,
+      version: inputs.version,
+      length: inputs.length,
+      charset: inputs.charset,
+    });
 
     const generateCalls = Math.max(0, result.drbgStates.length - 1);
     output.setStatus(`Generated ${result.bytesGenerated} bytes across ${generateCalls} DRBG generate call(s).`);
@@ -402,6 +419,7 @@ async function runDerivation(forProof = false): Promise<void> {
   } finally {
     form.setBusy(false);
     proof.setBusy(false);
+    cracker.setBusy(false);
   }
 }
 

@@ -48,6 +48,13 @@ async function runDemo(page: Page): Promise<void> {
     'data-state',
     'done',
   );
+
+  // Run the offline-cracking exhibit too, so the verdict, the recovered
+  // passphrase and the pivot — all injected only after a successful attack —
+  // are in the DOM when axe scans. The demo passphrase is in the shipped
+  // wordlist, so this exercises the recovered (worst-contrast) branch.
+  await page.click('#crack-run');
+  await expect(page.locator('[data-crack-verdict]')).toBeVisible({ timeout: 60_000 });
 }
 
 async function scan(page: Page, include?: string): Promise<void> {
