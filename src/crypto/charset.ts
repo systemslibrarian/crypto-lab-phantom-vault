@@ -124,6 +124,50 @@ export function estimateEntropyBits(charsetSize: number, length: number): number
   return length * Math.log2(charsetSize);
 }
 
+/** The size each enabled class contributes to the alphabet, in build order. */
+function enabledClassSizes(config: CharsetConfig): number[] {
+  const sizes: number[] = [];
+  if (config.lowercase) sizes.push(LOWERCASE.length);
+  if (config.uppercase) sizes.push(UPPERCASE.length);
+  if (config.digits) sizes.push(DIGITS.length);
+  if (config.symbols) sizes.push(SYMBOLS.length);
+  return sizes;
+}
+
+/**
+ * log2 of the number of length-`length` strings this generator can actually
+ * produce — which is NOT charsetSize^length.
+ *
+ * The pipeline rejects any candidate missing an enabled character class and
+ * draws again (derive/pipeline.ts), so the reachable outputs are exactly the
+ * strings satisfying the coverage rule. Counting them is inclusion-exclusion
+ * over "class i is absent". The gap matters most at short lengths — measured
+ * over the full 89-symbol alphabet it is 1.06 bits at length 8, 0.14 at the
+ * default length 20 and 0.00 by length 64 — and it is the right exponent for
+ * "how improbable is it that a WRONG passphrase reproduced this password",
+ * because a wrong passphrase draws from the same constrained space.
+ */
+export function validOutputBits(config: CharsetConfig, length: number): number {
+  const sizes = enabledClassSizes(config);
+  if (sizes.length === 0 || length <= 0) return 0;
+  const total = sizes.reduce((a, b) => a + b, 0);
+  if (total <= 1) return 0;
+
+  let count = 0;
+  for (let mask = 0; mask < 1 << sizes.length; mask += 1) {
+    let excluded = 0;
+    let omitted = 0;
+    for (let i = 0; i < sizes.length; i += 1) {
+      if ((mask >>> i) & 1) {
+        excluded += sizes[i];
+        omitted += 1;
+      }
+    }
+    count += (omitted % 2 === 0 ? 1 : -1) * Math.pow(total - excluded, length);
+  }
+  return count > 0 ? Math.log2(count) : 0;
+}
+
 /**
  * Rough UPPER BOUND on the entropy of the master passphrase, using the classic
  * "pool size ^ length" model. This deliberately OVERSTATES real-world phrases:

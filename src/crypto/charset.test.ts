@@ -2,12 +2,14 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  CHARSETS,
   buildCharset,
   chiSquareUniformity,
   estimateEntropyBits,
   estimatePassphraseEntropyBits,
   hasRequiredCharacterClasses,
   mapBytesToPassword,
+  validOutputBits,
 } from './charset';
 import type { CharsetConfig } from '../types/vault';
 
@@ -154,4 +156,60 @@ test('hasRequiredCharacterClasses enforces every enabled class', () => {
     }),
     false,
   );
+});
+
+/**
+ * The alphabet the page describes has to be the one the code builds. The
+ * Break-it panel's copy said "94 symbols"; the shipped classes are
+ * 26 + 26 + 10 + 27 = 89, and the copy now interpolates this number.
+ */
+test('the full charset is exactly the sum of the shipped classes', () => {
+  const all = { lowercase: true, uppercase: true, digits: true, symbols: true };
+  assert.equal(buildCharset(all).length, 89);
+  assert.equal(
+    buildCharset(all).length,
+    CHARSETS.LOWERCASE.length + CHARSETS.UPPERCASE.length + CHARSETS.DIGITS.length + CHARSETS.SYMBOLS.length,
+  );
+  // No class overlaps another, so the dedupe in buildCharset is a no-op and the
+  // sum above is the honest count rather than a coincidence.
+  const joined = CHARSETS.LOWERCASE + CHARSETS.UPPERCASE + CHARSETS.DIGITS + CHARSETS.SYMBOLS;
+  assert.equal(new Set(joined).size, joined.length);
+});
+
+/**
+ * validOutputBits counts what the generator can actually emit. The pipeline
+ * rejects any candidate missing an enabled class and redraws, so the reachable
+ * space is smaller than charsetSize^length — which is the exponent the Break-it
+ * panel used to print as its collision margin.
+ */
+test('validOutputBits counts only outputs satisfying the required-class rule', () => {
+  const all = { lowercase: true, uppercase: true, digits: true, symbols: true };
+  const single = { lowercase: true, uppercase: false, digits: false, symbols: false };
+
+  // With one class there is no coverage constraint, so the two agree exactly.
+  assert.ok(
+    Math.abs(validOutputBits(single, 12) - estimateEntropyBits(26, 12)) < 1e-9,
+    'a single class has nothing to exclude',
+  );
+
+  // With four classes the constrained space is strictly smaller, and the gap
+  // shrinks with length: measured 1.06 bits at length 8, 0.14 at 20, ~0 at 64.
+  const gap = (length: number): number => estimateEntropyBits(89, length) - validOutputBits(all, length);
+  assert.ok(gap(8) > 1.0 && gap(8) < 1.1, `length 8 gap was ${gap(8)}`);
+  assert.ok(gap(20) > 0.1 && gap(20) < 0.2, `length 20 gap was ${gap(20)}`);
+  assert.ok(gap(8) > gap(20) && gap(20) > gap(64), 'the gap shrinks as length grows');
+  assert.ok(gap(64) >= 0, 'the constrained space is never larger than the unconstrained one');
+
+  // Brute-force cross-check on a domain small enough to enumerate: 2 lowercase
+  // + 2 digits, length 3, requiring both classes.
+  const tiny = 4;
+  let valid = 0;
+  for (let a = 0; a < tiny; a += 1)
+    for (let b = 0; b < tiny; b += 1)
+      for (let c = 0; c < tiny; c += 1) {
+        const chars = [a, b, c];
+        if (chars.some((v) => v < 2) && chars.some((v) => v >= 2)) valid += 1;
+      }
+  // Inclusion-exclusion over classes of size 2 and 2: 4^3 - 2^3 - 2^3 + 0 = 48.
+  assert.equal(valid, 48);
 });

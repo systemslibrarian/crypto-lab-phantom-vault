@@ -64,7 +64,7 @@ test('break-it panel recovers a weak passphrase and its pivot matches what the v
   // sequential search must report exactly 5 guesses — a hardcoded verdict or a
   // short-circuit would not land on that number.
   await expect(page.locator('[data-crack-verdict]')).toContainText(
-    'MASTER PASSPHRASE RECOVERED after 5 guesses',
+    'CREDENTIAL-CONSISTENT PASSPHRASE FOUND after 5 guesses',
   );
   await expect(page.locator('[data-crack-recovered]')).toHaveText('password123');
 
@@ -92,6 +92,12 @@ test('break-it panel genuinely fails outside the wordlist, and the same credenti
   await expect(page.locator('[data-crack-verdict]')).toContainText(
     'NOT RECOVERED — the wordlist was exhausted after 8 guesses',
   );
+  // Every one of those 8 was derived and compared — an exhaustion verdict is a
+  // claim about comparisons that happened, not about candidates the pipeline
+  // refused. See the cracker unit tests for the branch where that is not true.
+  await expect(page.locator('[data-crack-verdict]')).toContainText(
+    'every one of them derived and compared',
+  );
   await expect(page.locator('#crack-status')).toContainText(
     'Master passphrase not recovered.',
   );
@@ -104,7 +110,7 @@ test('break-it panel genuinely fails outside the wordlist, and the same credenti
   await page.fill('#crack-wordlist', STRONG);
   await runAttack(page);
   await expect(page.locator('[data-crack-verdict]')).toContainText(
-    'MASTER PASSPHRASE RECOVERED after 1 guess:',
+    'CREDENTIAL-CONSISTENT PASSPHRASE FOUND after 1 guess:',
   );
   await expect(page.locator('[data-crack-recovered]')).toHaveText(STRONG);
   await expect(page.locator('[data-crack-pivot]')).not.toHaveText(stolen);
@@ -141,4 +147,106 @@ test('modulo-bias panel uses exact byte-domain counts and labels run data as obs
   const cells = page.locator('.dist-cell');
   await expect(cells.nth(0)).toContainText(/receives \d+ of 256/);
   await expect(cells.nth(1)).toContainText(/receives exactly \d+ of \d+ accepted values/);
+});
+
+/**
+ * Regression — the page rated a passphrase its own attack panel then cracked.
+ *
+ * `Strength:` is computed from min(format ceiling, composition ceiling). Both
+ * terms are ceilings, so the number can prove weakness and can never certify
+ * strength. It was printed as a verdict: measured over the shipped default
+ * wordlist, 5 of its 8 entries score better than Weak. This drives the exact
+ * sequence a visitor takes — press the page's own "Try a weak passphrase"
+ * button, derive, then run the attack — and requires the two exhibits to agree.
+ */
+test('the strength readout never certifies a passphrase the Break-it panel recovers', async ({
+  page,
+}) => {
+  await page.goto('.');
+
+  // The page's own preset: password123, length 64, every character class.
+  await page.click('#cap-weak-preset');
+  await expect(page.locator('#master-passphrase')).toHaveValue('password123');
+  await expect(page.locator('#length')).toHaveValue('64');
+
+  // The live cap panel must not tell the learner this passphrase is fine.
+  const capVerdict = await page.locator('#cap-verdict').innerText();
+  expect(capVerdict).not.toContain("is not what's holding you back");
+  expect(capVerdict).not.toContain('pins effective strength');
+
+  await page.fill('#service', 'github.com');
+  await page.fill('#username', 'you@example.com');
+  await page.click('#derive-button');
+  await expect(page.locator('#pipeline-status')).toHaveAttribute('data-state', 'done', {
+    timeout: 60_000,
+  });
+
+  // The claim: whatever band this lands in, it is stated as a ceiling unless it
+  // is the one band a ceiling can prove — "Weak".
+  const label = (await page.locator('#strength-label').innerText()).trim();
+  const effective = Number(
+    (await page.locator('#entropy-effective').innerText()).replace(' bits', '').trim(),
+  );
+  expect(effective, 'the readout produced a number').toBeGreaterThan(0);
+  if (effective < 40) {
+    expect(label).toBe('Strength: Weak');
+  } else {
+    expect(label, `${effective} bits printed as a verdict: ${label}`).toMatch(
+      /^Strength: at most /,
+    );
+    const valueText = await page.locator('#strength-track').getAttribute('aria-valuetext');
+    expect(valueText ?? '').toMatch(/^at most /);
+  }
+  // The preset exists to land above the Weak band — if it stopped doing so this
+  // test would be asserting nothing, so require it.
+  expect(effective, 'the weak preset still scores above the Weak band').toBeGreaterThanOrEqual(40);
+
+  // ...and now the other exhibit, on the same page, with the same passphrase.
+  await page.click('#crack-run');
+  await expect(page.locator('[data-crack-verdict]')).toBeVisible({ timeout: 60_000 });
+  await expect(page.locator('[data-crack-recovered]')).toHaveText('password123');
+});
+
+/**
+ * Regression — the entropy-cap panel described a passphrase the page had wiped.
+ *
+ * main.ts clears the passphrase field after every successful derivation via
+ * form.clearSensitive(). Assigning to `input.value` fires no `input` event, so
+ * the panel's listeners never ran: the dashed line, the bit count and the
+ * "Capped: …" verdict stayed on screen next to an empty field, describing a
+ * passphrase the page no longer held. Every derivation, every time.
+ */
+test('no live panel keeps describing the passphrase after the field is cleared', async ({
+  page,
+}) => {
+  await page.goto('.');
+  await page.fill('#master-passphrase', 'password123');
+  await page.fill('#service', 'github.com');
+  await page.fill('#username', 'you@example.com');
+
+  // Before deriving: the panel is describing a passphrase that is really there.
+  await expect(page.locator('#cap-caption')).toContainText('composition ceiling');
+  expect((await page.locator('#cap-verdict').innerText()).length).toBeGreaterThan(0);
+
+  await page.click('#derive-button');
+  await expect(page.locator('#pipeline-status')).toHaveAttribute('data-state', 'done', {
+    timeout: 60_000,
+  });
+
+  // The page wiped the field, so the claim is about what it now shows.
+  await expect(page.locator('#master-passphrase')).toHaveValue('');
+  await expect(page.locator('#cap-caption')).toContainText('Type a master passphrase above');
+  await expect(page.locator('#cap-caption')).not.toContainText('composition ceiling');
+  expect(
+    (await page.locator('#cap-verdict').innerText()).trim(),
+    'no verdict about a passphrase the page does not hold',
+  ).toBe('');
+  expect(
+    await page.locator('#cap-line').evaluate((el) => (el as HTMLElement).style.opacity),
+    'the dashed cap line is not left marking a wiped passphrase',
+  ).toBe('0');
+
+  // The derivation's own numbers stay, because they are scoped to the run that
+  // produced them — this is the panel that legitimately outlives the field.
+  await expect(page.locator('#entropy-passphrase')).not.toHaveText('n/a');
 });

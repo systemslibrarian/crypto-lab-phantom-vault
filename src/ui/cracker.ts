@@ -6,10 +6,22 @@ import {
   type CrackOutcome,
   type StolenCredential,
 } from '../attack/cracker';
-import { buildCharset } from '../crypto/charset';
+import { buildCharset, validOutputBits } from '../crypto/charset';
 import { PBKDF2_ITERATIONS } from '../crypto/pbkdf2';
 
 const ITERATIONS = PBKDF2_ITERATIONS.toLocaleString('en-US');
+
+/**
+ * Counted from the live charset, never quoted. The copy here used to say 94;
+ * the shipped alphabet is 26 + 26 + 10 + 27 = 89, and interpolating it means
+ * adding or removing a symbol cannot leave the prose behind.
+ */
+const FULL_CHARSET_SIZE = buildCharset({
+  lowercase: true,
+  uppercase: true,
+  digits: true,
+  symbols: true,
+}).length;
 
 export interface CrackerController {
   element: HTMLElement;
@@ -120,10 +132,30 @@ export function createCracker(): CrackerController {
       `dedicated hardware runs this same search far faster, so treat these as a floor on the ` +
       `attacker's speed rather than an estimate of it.</p>`;
 
+    if (outcome.inconclusive) {
+      // The list ran out, but candidates the pipeline refused were never
+      // compared — so the search learned nothing about them, and the verdict
+      // below must not claim the passphrase is absent from the list.
+      resultBox.innerHTML = `
+        <p class="crack-verdict crack-held" data-crack-verdict>INCONCLUSIVE — the search reached the end of the
+        list, but ${outcome.refusedCandidates} of ${outcome.guessesTried}
+        candidate${outcome.guessesTried === 1 ? '' : 's'} never completed a derivation, so
+        ${outcome.refusedCandidates === 1 ? 'it was' : 'they were'} never compared against the stolen
+        password. Only ${outcome.guessesCompared} guess${outcome.guessesCompared === 1 ? '' : 'es'} were
+        actually tested. This is not "the passphrase is not in this list" — the search does not know
+        that. Check the wordlist for lines the derivation refuses, and check that this page has
+        working WebCrypto.</p>
+        ${rateLine}
+      `;
+      status.textContent = `Attack finished inconclusively: ${outcome.refusedCandidates} of ${outcome.guessesTried} candidates were never compared.`;
+      return;
+    }
+
     if (outcome.recovered === null) {
       resultBox.innerHTML = `
         <p class="crack-verdict crack-held" data-crack-verdict>NOT RECOVERED — the wordlist was exhausted after
-        ${outcome.guessesTried} guess${outcome.guessesTried === 1 ? '' : 'es'} without reproducing the
+        ${outcome.guessesTried} guess${outcome.guessesTried === 1 ? '' : 'es'}, every one of them derived and
+        compared, without reproducing the
         stolen password. That is the honest outcome of this search, not a proof of safety: it means
         the passphrase behind that password is not in this list. A real attacker's list is billions
         of entries long and is ordered by how often people actually choose each one.</p>
@@ -135,21 +167,48 @@ export function createCracker(): CrackerController {
 
     const pivot = outcome.pivot;
     // How improbable a false match would be, computed from this run's own
-    // format: any wrong passphrase would have to reproduce all `length`
-    // characters over the selected alphabet. Stated rather than hand-waved,
-    // because "a match IS the passphrase" is only true to within this margin.
+    // format. Two corrections over the obvious version:
+    //
+    //  - the exponent is the REACHABLE output space, not alphabet^length. The
+    //    generator retries until every enabled class appears, so a wrong
+    //    passphrase draws from the constrained set too. Measured overstatement
+    //    of the naive figure: 1.06 bits at the minimum length 8, 0.14 at the
+    //    default 20, 0.00 by 64.
+    //  - the verdict is conditional on that number. One finite output does not
+    //    single out a passphrase; it identifies one CONSISTENT with the
+    //    credential. At the default 20 characters over 89 symbols that is 129
+    //    bits of agreement and the distinction is academic, but the minimum
+    //    shipped format — 8 characters, lowercase only — is 37.6 bits, and this
+    //    panel's own scale note describes real dictionaries of "billions of
+    //    entries" (~2^30). A 2^30 dictionary against a 2^37.6 output space
+    //    contains a colliding wrong candidate about 0.5% of the time. The
+    //    headline no longer asserts uniqueness the search did not establish.
     const alphabet = charsetSize(credential.charset);
-    const matchBits = alphabet > 1 ? Math.log2(alphabet) * credential.length : 0;
+    const matchBits = validOutputBits(credential.charset, credential.length);
+    const dictionaryBits = 30; // a billion entries, the scale note's own figure
+    const collisionOdds = Math.pow(2, dictionaryBits - matchBits);
+    const decisive = matchBits >= 64;
     resultBox.innerHTML = `
-      <p class="crack-verdict crack-broken" data-crack-verdict>MASTER PASSPHRASE RECOVERED after
+      <p class="crack-verdict crack-broken" data-crack-verdict>CREDENTIAL-CONSISTENT PASSPHRASE FOUND after
       ${outcome.guessesTried} guess${outcome.guessesTried === 1 ? '' : 'es'}:
       <code class="crack-secret" data-crack-recovered>${escapeHtml(outcome.recovered)}</code></p>
       <p class="crack-detail">Guess ${outcome.guessesTried} reproduced the stolen
       ${credential.length}-character password for "${escapeHtml(credential.service)}" exactly, character
-      for character. The derivation is deterministic, so this is a recovery rather than a guess at
-      one: for a <em>wrong</em> passphrase to land here it would have to collide across all
-      ${credential.length} characters of a ${alphabet}-symbol alphabet, about
-      ${matchBits.toFixed(0)} bits of agreement by chance.</p>
+      for character. The derivation is deterministic, so this candidate is not a near miss — but one
+      finite output cannot prove it is the <em>only</em> passphrase that produces it. How close that
+      distinction is comes from the format: this one has
+      <strong data-crack-margin>${matchBits.toFixed(0)} bits</strong> of reachable output space
+      (${credential.length} characters over ${alphabet} symbols, minus the strings the required-class
+      rule rejects). ${
+        decisive
+          ? `A billion-entry attack dictionary would contain a colliding wrong candidate about
+             ${collisionOdds.toExponential(1)} of the time, so here the candidate is the passphrase
+             for every practical purpose.`
+          : `A billion-entry attack dictionary — the scale this panel's note describes — would
+             contain a colliding wrong candidate about ${(collisionOdds * 100).toFixed(1)}% of the
+             time at this format, which is why the verdict says "consistent with" and not
+             "recovered". A second stolen credential from a different service would settle it.`
+      }</p>
       ${
         pivot
           ? `<p class="crack-detail">And the damage does not stop at the stolen site. With that
@@ -160,11 +219,11 @@ export function createCracker(): CrackerController {
           : ''
       }
       <p class="crack-detail">This is the entropy cap made concrete. Length and charset set the
-      <em>format</em> ceiling; they cannot raise the floor. A 64-character password over 94 symbols
-      is worth exactly as much as the passphrase behind it.</p>
+      <em>format</em> ceiling; they cannot raise the floor. A 64-character password over the full
+      ${FULL_CHARSET_SIZE}-symbol charset is worth exactly as much as the passphrase behind it.</p>
       ${rateLine}
     `;
-    status.textContent = `Attack finished: master passphrase recovered after ${outcome.guessesTried} guesses.`;
+    status.textContent = `Attack finished: a credential-consistent passphrase was found after ${outcome.guessesTried} guesses.`;
   }
 
   runButton.addEventListener('click', () => {

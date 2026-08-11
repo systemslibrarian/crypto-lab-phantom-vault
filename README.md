@@ -19,7 +19,9 @@ Phantom Vault is a stateless password derivation demo that combines PBKDF2-SHA-2
 
 The demo derives passwords in-browser from a master passphrase plus service context and selected charset rules. You can tune service, username, version, output length, and character class toggles (`lowercase`, `uppercase`, `digits`, `symbols`), then run derivation and inspect pipeline/proof output. The demo does not encrypt/decrypt stored payloads; it only derives deterministic passwords.
 
-The strength readout reports **effective entropy** as `min(master-passphrase entropy, output-format ceiling)`, not the format ceiling alone. This is the central lesson of deterministic derivation: the output can never hold more entropy than the secret it started from, so a weak passphrase caps the result no matter how long the password or how large the charset.
+The strength readout reports an **effective ceiling** as `min(master-passphrase composition ceiling, output-format ceiling)`, not the format ceiling alone. This is the central lesson of deterministic derivation: the output can never hold more entropy than the secret it started from, so a weak passphrase caps the result no matter how long the password or how large the charset.
+
+Both terms are ceilings, and the readout says so. The passphrase figure is `length x log2(apparent character pool)` — a bound that assumes the phrase was drawn uniformly from that pool, which no human-chosen phrase is. It can rule strength out and can never certify it, so only the `Weak` band is stated as a verdict; every band above it is printed as `at most ...`. `password123` scores 56.9 bits here and the Break-it panel recovers it at guess 5 of the shipped 8-line wordlist.
 
 Five interactive exhibits let you *feel* that lesson rather than just read it:
 

@@ -78,6 +78,35 @@ test('clearSensitive wipes only the passphrase; clearAllInputs resets everything
   assert.equal(el.querySelector<HTMLInputElement>('#version')!.value, '1');
 });
 
+/**
+ * Regression — the live entropy panel outlived the passphrase it described.
+ *
+ * main.ts calls clearSensitive() at the end of every successful derivation.
+ * Assigning to `input.value` fires no `input` event, so the onInputChange
+ * listeners never learned the field had emptied: the entropy-cap panel kept the
+ * cleared passphrase's dashed line, bit count and "Capped: … caps effective
+ * strength at N" verdict beside a blank field, on 100% of derivations.
+ */
+test('clearSensitive notifies input listeners, so nothing keeps describing the wiped passphrase', () => {
+  const form = createForm();
+  const pass = form.element.querySelector<HTMLInputElement>('#master-passphrase')!;
+
+  const seen: string[] = [];
+  form.onInputChange(() => {
+    seen.push(form.getInputs().masterPassphrase);
+  });
+
+  pass.value = 'topsecret';
+  pass.dispatchEvent(new dom.window.Event('input'));
+  assert.deepEqual(seen, ['topsecret'], 'typing notifies, as it always did');
+
+  form.clearSensitive();
+  assert.equal(seen.length, 2, 'clearing notifies too');
+  // The claim: whatever a listener renders after this call describes an EMPTY
+  // passphrase, because that is the state the page is now in.
+  assert.equal(seen[1], '', 'the listener was told the field is now empty');
+});
+
 test('passphrase visibility toggle flips the input type', () => {
   const form = createForm();
   const el = form.element;

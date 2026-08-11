@@ -174,6 +174,14 @@ export function createForm(): FormController {
 
   function clearSensitive(): void {
     passphraseInput.value = '';
+    // Programmatic assignment fires no `input` event, so anything driven by
+    // onInputChange never learned the field had been emptied. main.ts calls this
+    // at the end of EVERY successful derivation, which left the entropy-cap
+    // panel showing the cleared passphrase's dashed line, its bit count and its
+    // "Capped: … this passphrase caps effective strength at N" verdict beside a
+    // blank field — a claim about a passphrase the page no longer holds, on
+    // 100% of derivations.
+    emitInputChange();
   }
 
   function clearAllInputs(): void {

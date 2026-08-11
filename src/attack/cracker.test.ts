@@ -152,6 +152,68 @@ test('a candidate the pipeline refuses is a miss, not an abort', async () => {
   assert.equal(outcome.recovered, TRUE_PASSPHRASE);
   assert.equal(outcome.guessesTried, 2);
   assert.equal(outcome.exhausted, false);
+  // ...but it is counted as refused, not as a guess that was tested and missed.
+  assert.equal(outcome.refusedCandidates, 1);
+  assert.equal(outcome.guessesCompared, 1);
+});
+
+test('a search where nothing derived is inconclusive, never a clean exhaustion', async () => {
+  // The verdict "the wordlist was exhausted … the passphrase behind that
+  // password is not in this list" is a claim about comparisons that happened.
+  // With every derivation failing — the shape of a missing crypto.subtle on an
+  // insecure origin, or a broken shared policy — the old code folded all eight
+  // errors into `guessesTried`, set `exhausted: true`, and printed that verdict
+  // after comparing nothing at all. Measured: 8 of 8 candidates errored and the
+  // panel reported a clean 8-guess exhaustion.
+  const alwaysFails: DeriveFn = async () => {
+    throw new Error('crypto.subtle unavailable');
+  };
+  const outcome = await crackMasterPassphrase(STOLEN, DEFAULT_WORDLIST, silent, alwaysFails);
+
+  assert.equal(outcome.guessesTried, DEFAULT_WORDLIST.length);
+  assert.equal(outcome.refusedCandidates, DEFAULT_WORDLIST.length);
+  assert.equal(outcome.guessesCompared, 0);
+  assert.equal(outcome.recovered, null);
+  // The load-bearing pair: no exhaustion is claimed, and the run is flagged as
+  // telling the learner nothing about the list.
+  assert.equal(outcome.exhausted, false);
+  assert.equal(outcome.inconclusive, true);
+});
+
+test('a partial failure is inconclusive too — one uncompared candidate voids the claim', async () => {
+  // Not just the all-or-nothing case: if even one candidate never reached a
+  // comparison, "the passphrase is not in this list" is unsupported for it.
+  let calls = 0;
+  const failsOnce: DeriveFn = async (inputs, onProgress) => {
+    calls += 1;
+    if (calls === 2) throw new Error('transient');
+    return derivePassword(inputs, onProgress);
+  };
+  const outcome = await crackMasterPassphrase(
+    STOLEN,
+    ['nope-one', 'nope-two', 'nope-three'],
+    silent,
+    failsOnce,
+  );
+
+  assert.equal(outcome.guessesTried, 3);
+  assert.equal(outcome.refusedCandidates, 1);
+  assert.equal(outcome.guessesCompared, 2);
+  assert.equal(outcome.recovered, null);
+  assert.equal(outcome.exhausted, false);
+  assert.equal(outcome.inconclusive, true);
+});
+
+test('a search where every candidate derived and missed IS a clean exhaustion', async () => {
+  // The other side of the branch, so the fix above cannot pass by making every
+  // outcome inconclusive.
+  const outcome = await crackMasterPassphrase(STOLEN, ['nope-one', 'nope-two']);
+
+  assert.equal(outcome.guessesTried, 2);
+  assert.equal(outcome.refusedCandidates, 0);
+  assert.equal(outcome.guessesCompared, 2);
+  assert.equal(outcome.exhausted, true);
+  assert.equal(outcome.inconclusive, false);
 });
 
 // ---------------------------------------------------------------------------

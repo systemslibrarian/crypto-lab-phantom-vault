@@ -20,17 +20,37 @@ function requireNode<T extends Element>(parent: ParentNode, selector: string): T
   return node;
 }
 
-function strengthLabel(bits: number): { label: string; level: number } {
+/**
+ * The band an UPPER BOUND puts a passphrase in — and, crucially, whether that
+ * bound can carry the band as a verdict.
+ *
+ * `effectiveBits` is min(format ceiling, composition ceiling), and both terms
+ * are ceilings. A ceiling can prove a passphrase is weak; it can never prove one
+ * is strong. Printing "Strength: Fair" off it put this page in flat
+ * contradiction with its own Break-it panel: measured over the shipped default
+ * wordlist, 5 of its 8 entries scored better than Weak — "password123", the
+ * phrase behind this page's own "Try a weak passphrase" button, scored 56.9 bits
+ * and read "Fair" while the attack below recovers it at guess 5 of 8 (249 ms
+ * headless), and "correct horse battery staple" read "Very Strong, about 129
+ * bits" while falling at guess 4.
+ *
+ * So: below the 40-bit line the bound is sound evidence of weakness and the
+ * label stands. Above it the label is prefixed as a ceiling, because that is all
+ * the number supports.
+ */
+function strengthLabel(bits: number): { label: string; level: number; sound: boolean } {
   if (bits < 40) {
-    return { label: 'Weak', level: 25 };
+    // An upper bound under 40 bits PROVES the passphrase is weak. This is the
+    // one direction the estimate can carry.
+    return { label: 'Weak', level: 25, sound: true };
   }
   if (bits < 70) {
-    return { label: 'Fair', level: 50 };
+    return { label: 'Fair', level: 50, sound: false };
   }
   if (bits < 100) {
-    return { label: 'Strong', level: 75 };
+    return { label: 'Strong', level: 75, sound: false };
   }
-  return { label: 'Very Strong', level: 100 };
+  return { label: 'Very Strong', level: 100, sound: false };
 }
 
 export function createOutput(): OutputController {
@@ -149,15 +169,29 @@ export function createOutput(): OutputController {
     entropyEffective.textContent = `${effectiveBits.toFixed(1)} bits`;
     entropyCeiling.textContent = `${ceilingBits.toFixed(1)} bits (${length} chars × log₂ ${charsetSize})`;
     entropyPassphrase.textContent = `${passphraseEntropyBits.toFixed(1)} bits`;
-    entropyNote.textContent = capped
-      ? 'Your master passphrase — not the charset — is the limit here. Deterministic derivation cannot add entropy a weak passphrase never had. (Upper bound assumes a random passphrase; a real word or phrase is weaker still.)'
-      : 'The output format is the limiting factor. Increase length or enable more character classes to raise the ceiling.';
+    const bothCeilings =
+      ' Both numbers above are ceilings: the passphrase figure is length × log₂(apparent character pool), which assumes the phrase was drawn uniformly from that pool. A phrase in an attacker\'s dictionary is worth a handful of bits no matter what it scores here — the Break-it panel below is where that gets tested.';
+    entropyNote.textContent =
+      (capped
+        ? 'Your master passphrase — not the charset — is the limit here. Deterministic derivation cannot add entropy a weak passphrase never had.'
+        : 'The output format is the lower of the two ceilings here. That is not a verdict on the passphrase: raising length or enabling more character classes moves this bar, and moves nothing about how guessable the phrase is.') +
+      bothCeilings;
 
-    strengthLabelNode.textContent = `Strength: ${strength.label}`;
+    // A ceiling can prove weakness; it cannot certify strength. Only the "Weak"
+    // band is stated as a verdict — everything above it is stated as a limit.
+    const rendered = strength.sound ? strength.label : `at most ${strength.label}`;
+    strengthLabelNode.textContent = `Strength: ${rendered}`;
     strengthBar.style.width = `${strength.level}%`;
     strengthTrack.setAttribute('aria-valuenow', String(strength.level));
-    strengthTrack.setAttribute('aria-valuetext', `${strength.label}, about ${effectiveBits.toFixed(0)} bits`);
-    liveRegion.textContent = `Password derived. Estimated strength ${strength.label}, about ${effectiveBits.toFixed(0)} bits of effective entropy.`;
+    strengthTrack.setAttribute(
+      'aria-valuetext',
+      strength.sound
+        ? `${strength.label}, about ${effectiveBits.toFixed(0)} bits`
+        : `at most ${strength.label}, no more than ${effectiveBits.toFixed(0)} bits`,
+    );
+    liveRegion.textContent = strength.sound
+      ? `Password derived. Estimated strength ${strength.label}, about ${effectiveBits.toFixed(0)} bits of effective entropy.`
+      : `Password derived. Upper bound only: at most ${strength.label}, no more than ${effectiveBits.toFixed(0)} bits. The real figure depends on how the passphrase was chosen and can be far lower.`;
   }
 
   function setStatus(message: string): void {

@@ -10,15 +10,18 @@ import type { CharsetConfig, VaultInputs } from '../types/vault';
  * derived password — from a breached site, a shoulder-surf, a reused login —
  * can mount a straightforward offline attack: guess a passphrase, run the same
  * public derivation, and compare the output to the password they hold. A match
- * is not a probable match; it is the passphrase, and with it every other site's
- * password this vault would ever produce.
+ * is a candidate CONSISTENT with the credential — one finite output cannot rule
+ * out every other passphrase that would produce it — and how strong that
+ * evidence is depends on the format: the panel computes it from the reachable
+ * output space rather than asserting it.
  *
  * This is the entropy-cap panel's claim made falsifiable. That panel asserts
  * that a weak passphrase caps effective strength no matter how long or exotic
- * the output format is. Here, a 64-character password over the full 94-symbol
- * charset falls in a handful of guesses when the passphrase behind it is
- * `password123`, and the same run against a strong passphrase exhausts the list
- * and reports nothing recovered.
+ * the output format is. Here, a 64-character password over the full charset
+ * (89 symbols — 26 + 26 + 10 + 27, counted from buildCharset rather than quoted)
+ * falls in a handful of guesses when the passphrase behind it is `password123`,
+ * and the same run against a strong passphrase exhausts the list and reports
+ * nothing recovered.
  *
  * Nothing is simulated: every guess runs the real pipeline (PBKDF2 at the
  * shipped iteration count, HMAC-DRBG, rejection sampling) and compares the real
@@ -42,8 +45,25 @@ export interface CrackProgress {
 }
 
 export interface CrackOutcome {
-  /** How many candidate passphrases were actually run through the pipeline. */
+  /** How many candidate passphrases were taken off the list. */
   guessesTried: number;
+  /**
+   * Candidates the pipeline REFUSED — it threw rather than returning a password,
+   * so no comparison happened for them.
+   *
+   * These used to be silently folded into `guessesTried` and the run still
+   * reported "the wordlist was exhausted … the passphrase behind that password
+   * is not in this list". That verdict is a claim about a search that ran, and
+   * it is false for a candidate that never reached a comparison. Measured with
+   * an injected deriver that always throws: 8 of 8 candidates errored, and the
+   * old code reported a clean 8-guess exhaustion having compared nothing at all.
+   * The reachable version of that is a systemic failure — crypto.subtle absent
+   * on an insecure origin — rather than a bad line in the wordlist box, which
+   * is exactly the case a "not in this list" verdict must not cover.
+   */
+  refusedCandidates: number;
+  /** Guesses that actually completed a derivation and were compared. */
+  guessesCompared: number;
   elapsedMs: number;
   /** Measured in this browser tab, from this run — not quoted from anywhere. */
   guessesPerSecond: number;
@@ -54,8 +74,14 @@ export interface CrackOutcome {
    * now derives for a DIFFERENT service, using only the cracked passphrase.
    */
   pivot: { service: string; password: string } | null;
-  /** True when the whole list ran without a match. */
+  /** True when the whole list ran, every candidate was compared, and none matched. */
   exhausted: boolean;
+  /**
+   * True when the list ran out without a match but at least one candidate was
+   * never compared. The search is inconclusive about those, so the panel must
+   * not report the absence of the passphrase from the list.
+   */
+  inconclusive: boolean;
 }
 
 /**
@@ -103,6 +129,7 @@ export async function crackMasterPassphrase(
   const silent = (): void => {};
   const started = Date.now();
   let guessesTried = 0;
+  let refusedCandidates = 0;
   let recovered: string | null = null;
 
   for (const [index, guess] of wordlist.entries()) {
@@ -120,8 +147,11 @@ export async function crackMasterPassphrase(
     try {
       produced = (await derive(attempt, silent)).password;
     } catch {
-      // A candidate the pipeline refuses (e.g. an empty passphrase) is simply a
-      // guess that did not work; it must not abort the search.
+      // A candidate the pipeline refuses (e.g. an empty passphrase) must not
+      // abort the search — but it is NOT a guess that was tested and missed.
+      // Nothing was compared, so it is counted separately and the verdict says
+      // so rather than folding it into a clean exhaustion.
+      refusedCandidates += 1;
       continue;
     }
     if (produced === stolen.password) {
@@ -153,13 +183,19 @@ export async function crackMasterPassphrase(
     pivot = { service, password: other.password };
   }
 
+  const guessesCompared = guessesTried - refusedCandidates;
   return {
     guessesTried,
+    refusedCandidates,
+    guessesCompared,
     elapsedMs,
     guessesPerSecond,
     recovered,
     pivot,
-    exhausted: recovered === null,
+    // "Exhausted" is a claim that every candidate was tested and none matched.
+    // It is only earned when every candidate actually reached a comparison.
+    exhausted: recovered === null && refusedCandidates === 0,
+    inconclusive: recovered === null && refusedCandidates > 0,
   };
 }
 

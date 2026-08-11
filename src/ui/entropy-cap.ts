@@ -1,5 +1,9 @@
+import { DEFAULT_WORDLIST } from '../attack/cracker';
 import { buildCharset, estimateEntropyBits, estimatePassphraseEntropyBits } from '../crypto/charset';
 import type { CharsetConfig, VaultInputs } from '../types/vault';
+
+/** Counted from the shipped list, so the copy below cannot drift from it. */
+const WORDLIST_SIZE = DEFAULT_WORDLIST.length;
 
 export interface EntropyCapController {
   element: HTMLElement;
@@ -52,6 +56,13 @@ export function createEntropyCap(): EntropyCapController {
       watch the <strong>format ceiling</strong> climb — while <strong>effective entropy</strong>
       refuses to rise past the passphrase line. That gap is why a strong passphrase matters
       more than a long password.
+    </p>
+    <p class="helper-text">
+      <strong>Read both bars as ceilings.</strong> The passphrase figure is
+      length × log₂(apparent character pool) — a bound that assumes the phrase was drawn
+      uniformly from that pool, which no human-chosen phrase is. It cannot certify strength;
+      it can only rule it out. <code>password123</code> scores 57 bits here and the Break-it
+      panel below recovers it from a ${WORDLIST_SIZE}-line wordlist.
     </p>
 
     <div class="cap-chart" role="group" aria-label="Effective entropy versus format ceiling, capped by the master passphrase">
@@ -128,12 +139,20 @@ export function createEntropyCap(): EntropyCapController {
       return;
     }
 
-    caption.textContent = `Master-passphrase entropy (upper bound): ${passphraseBits.toFixed(0)} bits — the dashed line and the hard ceiling on effective strength.`;
+    caption.textContent = `Master-passphrase composition ceiling: ${passphraseBits.toFixed(0)} bits — the dashed line, and an upper bound on effective strength. The true figure is whatever the process that chose the phrase actually had, which can be far lower.`;
     effectiveBar.dataset.capped = capped ? 'true' : 'false';
 
+    // Both branches used to state the composition bound as a measurement. It is
+    // an upper bound, and the "not capped" branch went further and endorsed the
+    // passphrase — "not what's holding you back" — which the page's own attack
+    // panel can contradict: at length 8 with all four classes that verdict fires
+    // for `password123`, the phrase behind the preset button directly above,
+    // which the Break-it panel recovers from its ${WORDLIST_SIZE}-line default
+    // wordlist. "correct horse battery staple" draws the same endorsement across
+    // lengths 8-25 and falls from that same list too.
     verdict.textContent = capped
-      ? `Capped: the format could hold ${ceilingBits.toFixed(0)} bits, but this passphrase pins effective strength at ${effectiveBits.toFixed(0)}. Cranking length or charset moves only the top bar.`
-      : `Not capped: the ${ceilingBits.toFixed(0)}-bit format is the limit here. This passphrase (${passphraseBits.toFixed(0)} bits upper bound) is not what's holding you back — raise length or add character classes to gain more.`;
+      ? `Capped: the format could hold ${ceilingBits.toFixed(0)} bits, but this passphrase caps effective strength at no more than ${effectiveBits.toFixed(0)}. Cranking length or charset moves only the top bar.`
+      : `Not capped by composition: the ${ceilingBits.toFixed(0)}-bit format is the lower ceiling here, since the passphrase's composition bound is ${passphraseBits.toFixed(0)} bits. That bound is not a measurement — it assumes the phrase was picked uniformly from its character pool, and says nothing about whether it is in an attacker's dictionary. Try the Break-it panel below before treating it as strength.`;
   }
 
   function onWeakPreset(handler: () => void): void {
