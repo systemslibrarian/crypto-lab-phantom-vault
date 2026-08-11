@@ -68,6 +68,32 @@ test('break-it panel recovers a weak passphrase and its pivot matches what the v
   );
   await expect(page.locator('[data-crack-recovered]')).toHaveText('password123');
 
+  // The alphabet the copy names must be the one the code builds. It said 94; the
+  // shipped classes are 26 + 26 + 10 + 27 = 89. Read the size off the OTHER
+  // exhibit that prints it (the entropy breakdown's "log₂ N") rather than typing
+  // a number into this test, so the two panels have to agree.
+  const alphabet = Number(
+    /log₂ (\d+)/.exec(await page.locator('#entropy-ceiling').innerText())![1],
+  );
+  const crackText = await page.locator('#crack-result').innerText();
+  expect(crackText, 'the panel names the alphabet the rest of the page computes').toContain(
+    `${alphabet}-symbol charset`,
+  );
+  expect(crackText, 'the 94-symbol claim is gone').not.toContain('94-symbol');
+
+  // The collision margin is the REACHABLE output space, not alphabet^length: the
+  // required-class rule removes 0.14 bits at this format, so the printed integer
+  // must be 129 where the unconstrained ceiling would print 130.
+  const margin = Number(
+    /([\d.]+) bits/.exec(await page.locator('[data-crack-margin]').innerText())![1],
+  );
+  const unconstrained = 20 * Math.log2(alphabet);
+  expect(margin, 'a margin was computed at all').toBeGreaterThan(unconstrained - 2);
+  expect(
+    margin,
+    `margin ${margin} is the unconstrained ceiling ${unconstrained.toFixed(2)}, not the reachable space`,
+  ).toBeLessThanOrEqual(Math.floor(unconstrained));
+
   const pivotService = await page.locator('[data-crack-pivot-service]').innerText();
   const pivotPassword = await page.locator('[data-crack-pivot]').innerText();
   expect(pivotService).not.toBe('github.com');
