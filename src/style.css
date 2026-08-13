@@ -324,7 +324,12 @@ summary:focus-visible {
 .small-button {
   background: transparent;
   color: var(--text);
-  border-color: var(--border);
+  /* --control-border, not --border. These have NO fill, so this border is the
+     entire control boundary — the case SC 1.4.11 exists for. `--border` is the
+     surface-divider token and measured 1.61:1 here. The palette already defines
+     --control-border and had applied it to exactly one rule out of eighteen
+     that reach for a boundary. */
+  border-color: var(--control-border);
 }
 
 .theme-toggle {
@@ -333,7 +338,9 @@ summary:focus-visible {
   min-width: 2.6rem;
   min-height: 2.6rem;
   border-radius: 50%;
-  border: 1px solid var(--border);
+  /* Same case: the toggle's --panel fill sits close to the surface behind it,
+     so the border is what delineates the control. */
+  border: 1px solid var(--control-border);
   background: var(--panel);
   color: var(--text);
   display: grid;
