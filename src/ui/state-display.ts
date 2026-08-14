@@ -15,6 +15,8 @@ function truncateHex(value: string): string {
 export interface StateDisplay {
   element: HTMLElement;
   setStates: (states: DRBGState[], generatedBytes: number, rejected: number) => void;
+  /** Retire the snapshots — they describe a run whose inputs are gone. */
+  clear: () => void;
 }
 
 function requireNode<T extends Element>(parent: ParentNode, selector: string): T {
@@ -124,8 +126,15 @@ export function createStateDisplay(): StateDisplay {
     list.appendChild(summary);
   }
 
+  function clear(): void {
+    ratchet.innerHTML = '';
+    ratchetCaption.textContent = '';
+    list.innerHTML = '';
+  }
+
   return {
     element: wrapper,
     setStates,
+    clear,
   };
 }

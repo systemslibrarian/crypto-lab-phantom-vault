@@ -276,3 +276,81 @@ test('no live panel keeps describing the passphrase after the field is cleared',
   // produced them — this is the panel that legitimately outlives the field.
   await expect(page.locator('#entropy-passphrase')).not.toHaveText('n/a');
 });
+
+/**
+ * Regression — results outlived the inputs that produced them.
+ *
+ * After a derivation, the password, its entropy breakdown, the DRBG snapshots,
+ * the distribution observation and the "Complete" pipeline state all stayed on
+ * screen while the user edited service, username, version, length, charset or
+ * passphrase — an old password displayed beside a context it was never derived
+ * from. Any user edit now retires the lot, and the programmatic passphrase
+ * wipe after a successful derivation does NOT (that path is what the
+ * "no live panel keeps describing the passphrase" test above pins).
+ */
+test('editing a derivation input retires every result it produced', async ({ page }) => {
+  await page.goto('.');
+  await derive(page, 'password123', 'github.com');
+  // The state list lives inside a closed <details>, so assert presence, not
+  // visibility.
+  await expect(page.locator('#state-list .state-item').first()).toBeAttached();
+  await expect(page.locator('.dist-summary')).toBeVisible();
+
+  // One keystroke in one context field.
+  await page.fill('#service', 'gitlab.example');
+
+  await expect(page.locator('#password-value')).toHaveValue('');
+  await expect(page.locator('#copy-status')).toContainText('Inputs changed');
+  await expect(page.locator('#strength-label')).toHaveText('Strength: n/a');
+  await expect(page.locator('#state-list .state-item')).toHaveCount(0);
+  await expect(page.locator('.dist-summary')).toHaveCount(0);
+  await expect(page.locator('#pipeline-status')).toHaveAttribute('data-state', 'ready');
+  await expect(page.locator('#progress-text')).toContainText('Inputs changed');
+
+  // The page is not wedged: deriving again fills the panels for the new context.
+  const next = await derive(page, 'password123', 'gitlab.example');
+  expect(next).toHaveLength(20);
+  await expect(page.locator('#state-list .state-item').first()).toBeAttached();
+});
+
+/**
+ * Regression — a stale attack could land its verdict under a newer credential.
+ *
+ * The cracker and the main derivation can run concurrently: start a search
+ * against credential A, derive credential B while it runs, and A's verdict
+ * used to arrive late and overwrite the panel that now says it is armed with
+ * B. Each arm() bumps a generation; an attack launched under an older
+ * generation is discarded, progress lines included.
+ */
+test('an in-flight attack is discarded when a new derivation re-arms the panel', async ({
+  page,
+}) => {
+  await page.goto('.');
+  await derive(page, 'password123', 'github.com');
+
+  // A long list with no match keeps the search busy (~40 full PBKDF2 runs)
+  // while the much shorter single derivation below re-arms the panel.
+  const list = Array.from({ length: 40 }, (_, i) => `candidate-${i}`).join('\n');
+  await page.fill('#crack-wordlist', list);
+  await page.click('#crack-run');
+  await expect(page.locator('#crack-status')).toContainText('Guess');
+
+  // Derive a new credential while the old search is still running.
+  await derive(page, 'password123', 'gitlab.example');
+  await expect(page.locator('#crack-armed')).toContainText('gitlab.example');
+
+  // The old search finishes later. Its verdict must be discarded, not painted
+  // under the new armed label.
+  await expect(page.locator('#crack-status')).toContainText('Attack superseded', {
+    timeout: 60_000,
+  });
+  await expect(page.locator('[data-crack-verdict]')).toHaveCount(0);
+
+  // And the panel still works, against the NEW credential.
+  await page.fill('#crack-wordlist', 'password123');
+  await runAttack(page);
+  await expect(page.locator('[data-crack-verdict]')).toContainText(
+    'CREDENTIAL-CONSISTENT PASSPHRASE FOUND after 1 guess:',
+  );
+  await expect(page.locator('[data-crack-recovered]')).toHaveText('password123');
+});

@@ -119,3 +119,80 @@ test('passphrase visibility toggle flips the input type', () => {
   toggle.dispatchEvent(new dom.window.Event('click'));
   assert.equal(pass.type, 'password');
 });
+
+/**
+ * Regression — inputs stayed editable while PBKDF2 ran.
+ *
+ * The derivation runs from a snapshot taken at click time, so a field edited
+ * mid-run received a result computed from values it no longer showed. setBusy
+ * now freezes every derivation input for the duration instead of silently
+ * ignoring the edits.
+ */
+test('setBusy freezes every derivation input, and releasing it restores the single-class lock', () => {
+  const form = createForm();
+  const el = form.element;
+  const ids = ['#master-passphrase', '#service', '#username', '#version', '#length'];
+  const boxes = ['#charset-lower', '#charset-upper', '#charset-digits', '#charset-symbols'].map(
+    (id) => el.querySelector<HTMLInputElement>(id)!,
+  );
+
+  // Leave only lowercase enabled, so its checkbox is locked by the
+  // "last class can't be unchecked" rule before busy even starts.
+  for (const box of boxes.slice(1)) {
+    box.checked = false;
+    box.dispatchEvent(new dom.window.Event('change'));
+  }
+  assert.equal(boxes[0].disabled, true, 'precondition: sole class is locked');
+  assert.equal(boxes[1].disabled, false);
+
+  form.setBusy(true);
+  for (const id of ids) {
+    assert.equal(el.querySelector<HTMLInputElement>(id)!.disabled, true, `${id} frozen while busy`);
+  }
+  for (const box of boxes) {
+    assert.equal(box.disabled, true, 'every charset toggle frozen while busy');
+  }
+
+  form.setBusy(false);
+  for (const id of ids) {
+    assert.equal(el.querySelector<HTMLInputElement>(id)!.disabled, false, `${id} released`);
+  }
+  assert.equal(boxes[0].disabled, true, 'the sole enabled class stays locked after release');
+  assert.equal(boxes[1].disabled, false, 'the other toggles are released');
+});
+
+/**
+ * onEdit is the retirement hook: it must fire for genuine user edits of ANY
+ * derivation input — including the three that feed no live panel — and must
+ * NOT fire for clearSensitive(), which every successful derivation calls;
+ * otherwise each run would retire its own freshly rendered results.
+ */
+test('onEdit fires on user edits of every derivation input, never on clearSensitive', () => {
+  const form = createForm();
+  const el = form.element;
+  let edits = 0;
+  form.onEdit(() => {
+    edits += 1;
+  });
+
+  for (const id of ['#master-passphrase', '#service', '#username', '#version', '#length']) {
+    el.querySelector<HTMLInputElement>(id)!.dispatchEvent(new dom.window.Event('input'));
+  }
+  assert.equal(edits, 5, 'each field edit fires the hook');
+
+  el.querySelector<HTMLInputElement>('#charset-symbols')!.checked = false;
+  el.querySelector<HTMLInputElement>('#charset-symbols')!.dispatchEvent(
+    new dom.window.Event('change'),
+  );
+  assert.equal(edits, 6, 'charset toggles fire it too');
+
+  form.clearSensitive();
+  assert.equal(edits, 6, 'the programmatic post-derivation wipe is not an edit');
+
+  form.applyPreset({
+    masterPassphrase: 'password123',
+    length: 64,
+    charset: { lowercase: true, uppercase: true, digits: true, symbols: true },
+  });
+  assert.equal(edits, 7, 'the weak-preset button is a user edit');
+});

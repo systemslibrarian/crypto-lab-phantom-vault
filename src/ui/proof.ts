@@ -5,6 +5,8 @@ export interface ProofController {
   element: HTMLElement;
   runProof: (inputs: VaultInputs) => Promise<void>;
   setBusy: (busy: boolean) => void;
+  /** Retire the four rows — they compare derivations of inputs now edited. */
+  reset: () => void;
 }
 
 function requireNode<T extends Element>(parent: ParentNode, selector: string): T {
@@ -136,9 +138,20 @@ export function createProof(): ProofController {
     }
   }
 
+  function reset(): void {
+    run1.textContent = '—';
+    run2.textContent = '—';
+    run3.textContent = '—';
+    run4.textContent = '—';
+    label3.textContent = 'version + 1';
+    label4.textContent = 'different service';
+    result.textContent = 'Run proof to compare four derivations.';
+  }
+
   return {
     element: wrapper,
     runProof,
     setBusy,
+    reset,
   };
 }

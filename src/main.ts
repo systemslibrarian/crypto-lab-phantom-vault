@@ -412,10 +412,12 @@ async function runDerivation(forProof = false): Promise<void> {
       await proof.runProof(inputs);
     }
 
+    hasResults = true;
     form.clearSensitive();
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown derivation error.';
     form.setError(message);
+    hasResults = false;
     output.clear();
     distribution.clear();
     setPipelineState('error');
@@ -426,6 +428,33 @@ async function runDerivation(forProof = false): Promise<void> {
     cracker.setBusy(false);
   }
 }
+
+// Any user edit of a derivation input — passphrase, service, username,
+// version, length, charset — makes every on-screen result a claim about
+// inputs the page no longer holds: the password, its entropy breakdown, the
+// DRBG snapshots, the distribution observation, the proof table and the
+// "Complete" pipeline state were all computed from the previous values.
+// Retire them together. The Break-it panel is the one deliberate exception:
+// its armed credential is something an attacker already holds, its verdicts
+// name their own service and context, and editing the form does not un-steal
+// it — while a NEW derivation re-arms it and discards any in-flight search.
+// (form.clearSensitive(), the programmatic wipe after every derivation, fires
+// onInputChange but not onEdit, so a run never retires its own results.)
+let hasResults = false;
+function retireResults(): void {
+  if (!hasResults) {
+    return;
+  }
+  hasResults = false;
+  output.clear();
+  output.setStatus('Inputs changed — derive again.');
+  stateDisplay.clear();
+  distribution.clear();
+  proof.reset();
+  resetProgress();
+  progressText.textContent = 'Inputs changed — derive again to see results for the new inputs.';
+}
+form.onEdit(retireResults);
 
 form.onDerive(() => {
   void runDerivation(false);

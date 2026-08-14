@@ -13,6 +13,13 @@ export interface FormController {
   /** Fires whenever any input the entropy readout depends on changes. */
   onInputChange: (handler: () => void) => void;
   /**
+   * Fires only on a USER edit of a derivation input (any of the six fields).
+   * Distinct from onInputChange: clearSensitive() — the programmatic wipe after
+   * every successful derivation — notifies input listeners but is NOT an edit,
+   * so results retired on this hook survive their own derivation's cleanup.
+   */
+  onEdit: (handler: () => void) => void;
+  /**
    * Overwrites passphrase + length + every charset toggle in one shot (used by
    * the "Try a weak passphrase" teaching preset). Fires onInputChange listeners.
    */
@@ -122,6 +129,22 @@ export function createForm(): FormController {
       handler();
     }
   };
+  const editHandlers: Array<() => void> = [];
+  const emitEdit = (): void => {
+    for (const handler of editHandlers) {
+      handler();
+    }
+  };
+
+  // Re-apply the "last class can't be unchecked" disabled state. `busy` (below)
+  // overrides everything while a derivation is running.
+  let busy = false;
+  const syncCheckboxLock = (): void => {
+    const enabled = checkboxes.filter((entry) => entry.checked).length;
+    for (const item of checkboxes) {
+      item.disabled = busy || (item.checked && enabled === 1);
+    }
+  };
 
   for (const checkbox of checkboxes) {
     checkbox.addEventListener('change', () => {
@@ -130,18 +153,28 @@ export function createForm(): FormController {
         checkbox.checked = true;
       }
 
-      for (const item of checkboxes) {
-        item.disabled = item.checked && checkboxes.filter((entry) => entry.checked).length === 1;
-      }
-
+      syncCheckboxLock();
       emitInputChange();
+      emitEdit();
     });
   }
 
   // The entropy-cap exhibit updates live as the learner drags length or types a
   // passphrase, so surface those edits too (not just charset toggles).
-  passphraseInput.addEventListener('input', emitInputChange);
-  lengthInput.addEventListener('input', emitInputChange);
+  passphraseInput.addEventListener('input', () => {
+    emitInputChange();
+    emitEdit();
+  });
+  lengthInput.addEventListener('input', () => {
+    emitInputChange();
+    emitEdit();
+  });
+  // These three do not feed the entropy readout, but they are derivation
+  // context all the same — editing any of them makes every on-screen result a
+  // claim about inputs the page no longer holds.
+  serviceInput.addEventListener('input', emitEdit);
+  usernameInput.addEventListener('input', emitEdit);
+  versionInput.addEventListener('input', emitEdit);
 
   toggleButton.addEventListener('click', () => {
     const hidden = passphraseInput.type === 'password';
@@ -149,10 +182,21 @@ export function createForm(): FormController {
     toggleButton.textContent = hidden ? 'Hide' : 'Show';
   });
 
-  function setBusy(busy: boolean): void {
-    deriveButton.disabled = busy;
-    proofButton.disabled = busy;
-    deriveButton.textContent = busy ? 'Deriving...' : 'Derive Password';
+  function setBusy(next: boolean): void {
+    busy = next;
+    deriveButton.disabled = next;
+    proofButton.disabled = next;
+    deriveButton.textContent = next ? 'Deriving...' : 'Derive Password';
+    // Freeze every derivation input while the pipeline runs. The run derives
+    // from a snapshot taken at click time, so a field edited mid-run would get
+    // a result computed from values the form no longer shows — the input is
+    // disabled rather than silently ignored.
+    passphraseInput.disabled = next;
+    serviceInput.disabled = next;
+    usernameInput.disabled = next;
+    versionInput.disabled = next;
+    lengthInput.disabled = next;
+    syncCheckboxLock();
   }
 
   function getInputs(): VaultInputs {
@@ -220,6 +264,10 @@ export function createForm(): FormController {
     inputChangeHandlers.push(handler);
   }
 
+  function onEdit(handler: () => void): void {
+    editHandlers.push(handler);
+  }
+
   function applyPreset(preset: {
     masterPassphrase: string;
     length: number;
@@ -232,13 +280,11 @@ export function createForm(): FormController {
     charsetInputs.digits.checked = preset.charset.digits;
     charsetInputs.symbols.checked = preset.charset.symbols;
 
-    // Re-apply the "last class can't be unchecked" disabled state.
-    const enabled = checkboxes.filter((entry) => entry.checked).length;
-    for (const item of checkboxes) {
-      item.disabled = item.checked && enabled === 1;
-    }
-
+    syncCheckboxLock();
     emitInputChange();
+    // The preset button is a user edit of the derivation inputs, so it retires
+    // results the same way typing into the fields does.
+    emitEdit();
   }
 
   return {
@@ -252,6 +298,7 @@ export function createForm(): FormController {
     onDerive,
     onProof,
     onInputChange,
+    onEdit,
     applyPreset,
   };
 }

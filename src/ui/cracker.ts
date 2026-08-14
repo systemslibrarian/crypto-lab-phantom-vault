@@ -98,6 +98,13 @@ export function createCracker(): CrackerController {
   let stolen: StolenCredential | null = null;
   let running = false;
   let externallyBusy = false;
+  // Bumped by every arm(). An attack captures the value at launch, and any
+  // message it produces later — progress or verdict — is dropped if the panel
+  // has since been re-armed. Without this, deriving a new credential while a
+  // search is running let the OLD search's verdict land under the NEW armed
+  // label: attack A finishes late, and its result overwrites a panel that says
+  // it is armed with credential B.
+  let generation = 0;
 
   function syncButton(): void {
     const enabled = stolen !== null && !running && !externallyBusy;
@@ -106,6 +113,7 @@ export function createCracker(): CrackerController {
   }
 
   function arm(next: StolenCredential): void {
+    generation += 1;
     stolen = next;
     armedNote.textContent =
       `Armed. The attacker holds the ${next.length}-character password just derived for ` +
@@ -240,13 +248,27 @@ export function createCracker(): CrackerController {
     resultBox.innerHTML = '';
     status.textContent = `Running ${wordlist.length} full derivations…`;
 
+    // The generation this attack belongs to. If a new derivation re-arms the
+    // panel mid-search, everything this attack says from then on — progress
+    // lines included — is about a credential the panel no longer holds, and is
+    // dropped rather than painted over the new label.
+    const launched = generation;
+    const stale = (): boolean => launched !== generation;
+
     void crackMasterPassphrase(credential, wordlist, ({ index, total }) => {
+      if (stale()) return;
       status.textContent = `Guess ${index + 1} of ${total} — running the full pipeline (PBKDF2 ${ITERATIONS} iterations, HMAC-DRBG, rejection sampling)…`;
     })
       .then((outcome) => {
+        if (stale()) {
+          status.textContent =
+            'Attack superseded: a new credential was derived while the search ran, so its result was discarded. Run the attack again to test the new one.';
+          return;
+        }
         renderOutcome(outcome, credential);
       })
       .catch((error: unknown) => {
+        if (stale()) return;
         status.textContent = `Attack failed to run: ${error instanceof Error ? error.message : 'unknown error'}`;
       })
       .finally(() => {
