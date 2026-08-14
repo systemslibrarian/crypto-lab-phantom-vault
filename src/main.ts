@@ -38,9 +38,10 @@ app.innerHTML = `
       <aside class="cl-hero-why" aria-label="Why it matters">
         <span class="cl-hero-why-label">WHY IT MATTERS</span>
         <p class="cl-hero-why-text">
-          A vault you never store is a vault no one can breach or sync. Bump the version to
-          rotate a leaked password, and context keeps each site independent — but effective
-          strength is capped by your master passphrase.
+          No stored vault means no vault database to breach or sync — the risk moves to your
+          master passphrase and the device deriving from it. Bump the version to rotate a
+          leaked password, and context keeps each site independent — but effective strength
+          is capped by that passphrase.
         </p>
       </aside>
     </header>

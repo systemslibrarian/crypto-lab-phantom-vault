@@ -100,7 +100,14 @@ export const DEFAULT_WORDLIST = [
   'hunter2',
 ];
 
-/** Parse the learner-editable wordlist box: one candidate per line, no blanks. */
+/**
+ * Parse the learner-editable wordlist box: one candidate per line, trimmed,
+ * no blanks, deduped. The trim is a stated limitation, not an accident: the
+ * main derivation preserves leading/trailing passphrase spaces, so a
+ * passphrase that depends on them cannot be represented in this box — and the
+ * panel's label says candidates are trimmed rather than leaving the rule to
+ * be discovered by a mysterious miss.
+ */
 export function parseWordlist(raw: string): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
@@ -166,8 +173,10 @@ export async function crackMasterPassphrase(
   let pivot: CrackOutcome['pivot'] = null;
   if (recovered !== null) {
     // The consequence, run for real: same attacker, same public algorithm, a
-    // different site. No ground truth is needed — the passphrase was proven
-    // correct by reproducing the stolen password byte for byte above.
+    // different site. No ground truth is needed — the candidate reproduced the
+    // stolen password byte for byte above, which is exactly the evidence a
+    // real attacker would act on (see the panel's collision-margin note for
+    // how strong that evidence is at each format).
     const service = pivotService(stolen.service);
     const other = await derive(
       {

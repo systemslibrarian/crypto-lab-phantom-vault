@@ -64,9 +64,12 @@ export function createCracker(): CrackerController {
     <p class="helper-text">
       Everything about this derivation is public: the algorithm, the ${ITERATIONS} PBKDF2
       iterations, the service, the username, the version, the charset, the length. Only the master
-      passphrase is secret. So an attacker who steals <strong>one</strong> derived password can
-      guess passphrases offline: run the same public pipeline on each guess and compare. A match is
-      not a likely match — it is the passphrase, and every other site's password follows.
+      passphrase is secret. So an attacker who obtains <strong>one</strong> derived password in
+      plaintext — phishing, a keylogger, a shoulder-surf, a site that stored or logged it
+      improperly (a well-run site stores only a hash) — can guess passphrases offline: run the
+      same public pipeline on each guess and compare. A match is a passphrase consistent with the
+      stolen credential — the verdict below computes how strong that evidence is from the output
+      format — and every other site's password follows from it.
       This panel is handed exactly what such an attacker holds. Your passphrase is cleared from
       the form the moment a derivation finishes, and the search below never sees it.
     </p>
@@ -80,7 +83,7 @@ export function createCracker(): CrackerController {
     </p>
     <p class="helper-text" id="crack-armed" aria-live="polite">Derive a password first — the attack needs a stolen credential to work against.</p>
 
-    <label class="crack-label" for="crack-wordlist">Attacker's wordlist (one candidate per line — add your own passphrase and watch it fall)</label>
+    <label class="crack-label" for="crack-wordlist">Attacker's wordlist (one candidate per line, trimmed of surrounding whitespace — add your own passphrase and watch it fall)</label>
     <textarea id="crack-wordlist" class="crack-wordlist" rows="6" spellcheck="false">${escapeHtml(DEFAULT_WORDLIST.join('\n'))}</textarea>
 
     <button type="button" class="action-button" id="crack-run" disabled aria-disabled="true">Run the attack</button>
