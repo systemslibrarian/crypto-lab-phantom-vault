@@ -339,7 +339,11 @@ function setProgress(step: PipelineStep, pct: number): void {
   }
 
   if (step === 'stretching' && pct < 100) {
-    progressText.textContent = `Stretching passphrase... ${pct}% (this takes 1-3 seconds; high iteration count increases brute-force cost)`;
+    // WebCrypto exposes no per-iteration PBKDF2 progress, so the worker's
+    // percentage is estimated from elapsed time against a typical duration.
+    // Say so — an unqualified "47%" would be claiming a measurement the page
+    // cannot make.
+    progressText.textContent = `Stretching passphrase... ~${pct}% (estimated from elapsed time — WebCrypto reports no real PBKDF2 progress; typically 1-3 seconds)`;
   } else {
     progressText.textContent = stepByKey.get(step)?.label ?? 'Working...';
   }
@@ -360,13 +364,13 @@ async function runDerivation(forProof = false): Promise<void> {
     return;
   }
 
-  if (inputs.version < 1) {
-    form.setError('Version must be at least 1.');
+  if (!Number.isInteger(inputs.version) || inputs.version < 1) {
+    form.setError('Version must be a whole number of at least 1.');
     return;
   }
 
-  if (inputs.length < 8 || inputs.length > 64) {
-    form.setError('Length must be between 8 and 64.');
+  if (!Number.isInteger(inputs.length) || inputs.length < 8 || inputs.length > 64) {
+    form.setError('Length must be a whole number between 8 and 64.');
     return;
   }
 

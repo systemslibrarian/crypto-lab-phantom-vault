@@ -111,10 +111,16 @@ export function createStateDisplay(): StateDisplay {
       const item = document.createElement('article');
       item.className = 'state-item';
       const label = SECTION_LABELS[index] ?? `Generate call ${index}`;
+      // Truncated fingerprints only — the full K and V used to ride along in
+      // `title` attributes. These values are derived from the master secret
+      // (the byte stream that becomes the password is HMAC'd out of them), so
+      // the complete state has no business in the DOM; the truncation shows
+      // the ratchet stepping without exposing generator state a real password
+      // tool must never reveal.
       item.innerHTML = `
         <h3>Step ${index + 1} - ${label}</h3>
-        <p title="${state.K}"><strong>K:</strong> ${truncateHex(state.K)}</p>
-        <p title="${state.V}"><strong>V:</strong> ${truncateHex(state.V)}</p>
+        <p><strong>K:</strong> ${truncateHex(state.K)}</p>
+        <p><strong>V:</strong> ${truncateHex(state.V)}</p>
         <p><strong>reseedCounter:</strong> ${state.reseedCounter}</p>
       `;
       list.appendChild(item);

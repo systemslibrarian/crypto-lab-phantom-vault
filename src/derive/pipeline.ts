@@ -21,8 +21,23 @@ export async function derivePassword(
     throw new Error('Master passphrase is required.');
   }
 
-  if (inputs.version < 1) {
-    throw new Error('Version must be at least 1.');
+  // The core validates its own boundaries rather than trusting the form.
+  // `version < 1` alone let NaN and fractions through (NaN < 1 is false), and
+  // a fractional length reached the mapper, whose `while (chars.length <
+  // length)` loop then emitted ceil(length) characters — a 20.5 in the form's
+  // number input produced a 21-character password labelled 20.5.
+  if (!Number.isInteger(inputs.version) || inputs.version < 1) {
+    throw new Error('Version must be a whole number of at least 1.');
+  }
+
+  if (!Number.isInteger(inputs.length) || inputs.length < 8 || inputs.length > 64) {
+    throw new Error('Length must be a whole number between 8 and 64.');
+  }
+
+  // Context fields feed a NUL-separated salt string; a NUL inside a field
+  // would make two different contexts encode identically.
+  if (inputs.service.includes('\0') || inputs.username.includes('\0')) {
+    throw new Error('Service and username must not contain NUL characters.');
   }
 
   onProgress('stretching', 0);

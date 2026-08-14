@@ -130,19 +130,34 @@ export function createOutput(): OutputController {
       return;
     }
 
-    await navigator.clipboard.writeText(passwordInput.value);
-    copyStatus.textContent = 'Copied! Clipboard auto-clear scheduled in 30 s.';
+    const copied = passwordInput.value;
+    await navigator.clipboard.writeText(copied);
+    copyStatus.textContent =
+      'Copied! Auto-clear will run in 30 s — only if the clipboard still holds this password.';
 
     if (clearClipboardTimer !== null) {
       window.clearTimeout(clearClipboardTimer);
     }
 
     clearClipboardTimer = window.setTimeout(async () => {
+      clearClipboardTimer = null;
+      // Clear only what this page put there. The old timer overwrote the
+      // clipboard unconditionally, destroying whatever the user had copied in
+      // the 30 seconds since — and a clear outside a user gesture can be
+      // refused anyway. Verify first; if the platform will not let us verify,
+      // warn instead of blindly overwriting newer content.
       try {
+        const current = await navigator.clipboard.readText();
+        if (current !== copied) {
+          copyStatus.textContent =
+            'Clipboard has newer content — left untouched. The password is no longer on it.';
+          return;
+        }
         await navigator.clipboard.writeText('');
         copyStatus.textContent = 'Clipboard cleared.';
       } catch {
-        copyStatus.textContent = 'Clipboard clear failed — clear it manually.';
+        copyStatus.textContent =
+          'Could not verify the clipboard still holds the password — it was not overwritten. Clear it manually if needed.';
       }
     }, 30_000);
   });

@@ -76,3 +76,26 @@ test('validation: empty passphrase and version < 1 are rejected', async () => {
   await assert.rejects(() => derivePassword(inputs({ masterPassphrase: '   ' }), noop));
   await assert.rejects(() => derivePassword(inputs({ version: 0 }), noop));
 });
+
+/**
+ * The core validates its own boundaries rather than trusting the form. The
+ * reachable case: the form's number inputs accept fractions, and a length of
+ * 20.5 used to sail past `length < 8 || length > 64` and produce a
+ * 21-character password labelled 20.5 (the mapper's `while (chars.length <
+ * length)` loop runs to ceil). NaN rode the same hole from the other side:
+ * `NaN < 1` is false, so a NaN version validated. None of these reject
+ * anything a working UI submits — every message names the rule.
+ */
+test('validation: non-integer, NaN and infinite version/length are rejected, as are NUL context fields', async () => {
+  await assert.rejects(() => derivePassword(inputs({ version: Number.NaN }), noop));
+  await assert.rejects(() => derivePassword(inputs({ version: 2.5 }), noop));
+  await assert.rejects(() => derivePassword(inputs({ version: Number.POSITIVE_INFINITY }), noop));
+  await assert.rejects(() => derivePassword(inputs({ length: 20.5 }), noop));
+  await assert.rejects(() => derivePassword(inputs({ length: Number.NaN }), noop));
+  await assert.rejects(() => derivePassword(inputs({ length: 7 }), noop));
+  await assert.rejects(() => derivePassword(inputs({ length: 65 }), noop));
+  // The salt string is NUL-separated, so a NUL inside a field would let two
+  // different contexts encode identically.
+  await assert.rejects(() => derivePassword(inputs({ service: 'a\0b' }), noop));
+  await assert.rejects(() => derivePassword(inputs({ username: 'a\0b' }), noop));
+});
