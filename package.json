@@ -13,7 +13,7 @@
     "check": "npm run type-check && npm run test && npm run verify:uniformity",
     "preview": "vite preview",
     "test:e2e": "playwright test",
-    "test:a11y": "playwright test e2e/a11y.spec.ts e2e/border.spec.ts",
+    "test:a11y": "playwright test e2e/a11y.spec.ts",
     "test:claims": "playwright test e2e/claims.spec.ts"
   },
   "devDependencies": {

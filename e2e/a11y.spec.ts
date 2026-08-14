@@ -1,11 +1,22 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
+import { auditContrast, formatContrastFailures } from './contrast';
+import { auditNonText, formatNonTextFailures } from './nontext';
 
 /**
  * WCAG regression gate. Mirrors the KAT vector gate but for accessibility:
  * scans the full page with every <details> expanded and the live demo driven,
  * in both dark (default) and light themes. Also scans the "How It Works"
  * modal, which is a mutually-exclusive full-screen dialog.
+ *
+ * axe is not the whole oracle. Every scanned state is also measured
+ * arithmetically by `./contrast` (composite-aware WCAG 1.4.3 — the gradients,
+ * `color-mix()` surfaces and ancestor-opacity fades axe files under
+ * `incomplete`) and by `./nontext` (WCAG 1.4.11 control boundaries and
+ * generated-content ink, which axe has no rule for at all). On first wiring,
+ * the pair found four defects a green axe run had been sitting on: the solid
+ * action buttons and the wordlist textarea dissolving into their panels, and
+ * the footer's hardcoded teal links at 1.68:1 in the light theme.
  */
 
 const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'];
@@ -57,7 +68,7 @@ async function runDemo(page: Page): Promise<void> {
   await expect(page.locator('[data-crack-verdict]')).toBeVisible({ timeout: 60_000 });
 }
 
-async function scan(page: Page, include?: string): Promise<void> {
+async function scan(page: Page, label: string, include?: string): Promise<void> {
   let builder = new AxeBuilder({ page }).withTags(TAGS);
   if (include) {
     builder = builder.include(include);
@@ -69,21 +80,33 @@ async function scan(page: Page, include?: string): Promise<void> {
     help: v.help,
     nodes: v.nodes.map((n) => n.target.join(' ')).slice(0, 5),
   }));
-  expect(summary).toEqual([]);
+  expect(summary, `axe violations in state: ${label}`).toEqual([]);
+
+  const contrast = await auditContrast(page);
+  expect(
+    formatContrastFailures(contrast),
+    `measured contrast failures in state: ${label}`,
+  ).toEqual([]);
+
+  const nonText = await auditNonText(page);
+  expect(
+    formatNonTextFailures(nonText),
+    `non-text contrast failures in state: ${label}`,
+  ).toEqual([]);
 }
 
-async function scanEverything(page: Page): Promise<void> {
+async function scanEverything(page: Page, theme: string): Promise<void> {
   await neutralizeMotion(page);
   await openAllDetails(page);
   await runDemo(page);
   // Base page (modal closed).
-  await scan(page);
+  await scan(page, `${theme} / demo driven`);
 
   // The "How It Works" modal is a native <dialog> shown with showModal(); it
   // covers the page. Scan it open, then close so themed re-scans start clean.
   await page.click('#open-modal');
   await expect(page.locator('#how-modal')).toBeVisible();
-  await scan(page);
+  await scan(page, `${theme} / modal open`);
   await page.click('#close-modal');
   await expect(page.locator('#how-modal')).toBeHidden();
 }
@@ -91,12 +114,12 @@ async function scanEverything(page: Page): Promise<void> {
 test('no WCAG A/AA violations in dark theme', async ({ page }) => {
   await mount(page);
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
-  await scanEverything(page);
+  await scanEverything(page, 'dark');
 });
 
 test('no WCAG A/AA violations in light theme', async ({ page }) => {
   await mount(page);
   await page.locator('#cl-theme-toggle').click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
-  await scanEverything(page);
+  await scanEverything(page, 'light');
 });

@@ -318,6 +318,11 @@ summary:focus-visible {
 .action-button {
   background: var(--accent-btn);
   color: var(--on-accent);
+  /* WCAG 1.4.11: the --accent-btn fill alone measures 2.86:1 against the dark
+     panel, and the shared base rule above draws these a TRANSPARENT border, so
+     nothing carried the boundary. --control-border clears 3:1 against every
+     surface these buttons sit on, in both themes. */
+  border-color: var(--control-border);
 }
 
 .ghost-button,
@@ -997,7 +1002,11 @@ dialog ol {
   line-height: 1.6;
   padding: 0.6rem 0.7rem;
   border-radius: 8px;
-  border: 1px solid var(--border, rgba(128, 128, 128, 0.45));
+  /* WCAG 1.4.11: the near-transparent fill cannot delineate this control, so
+     the border is the whole boundary — and `--border`, the surface-divider
+     token, measured 1.36:1 (dark) / 1.66:1 (light) against the panel around
+     it. Same fix as every other control on the page: the boundary token. */
+  border: 1px solid var(--control-border);
   background: var(--surface-2, rgba(128, 128, 128, 0.08));
   color: inherit;
   resize: vertical;
