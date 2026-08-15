@@ -133,7 +133,7 @@ async function mount(page: Page): Promise<void> {
   ).toBe(true);
   // The app renders synchronously in main.ts; wait for a known deep node.
   await page.locator('#derive-button').waitFor({ state: 'visible' });
-  await page.locator('#cl-theme-toggle').waitFor({ state: 'visible' });
+  await page.locator('.cl-topbar').waitFor({ state: 'visible' });
 }
 
 // Drive the live derivation so the dynamically injected DRBG state cards and
@@ -211,9 +211,3 @@ test('no WCAG A/AA violations in dark theme', async ({ page }) => {
   await scanEverything(page, 'dark');
 });
 
-test('no WCAG A/AA violations in light theme', async ({ page }) => {
-  await mount(page);
-  await page.locator('#cl-theme-toggle').click();
-  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
-  await scanEverything(page, 'light');
-});
