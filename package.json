@@ -19,6 +19,7 @@
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",
     "@playwright/test": "^1.62.1",
+    "@tailwindcss/postcss": "^4.3.3",
     "@types/jsdom": "^30.0.0",
     "@types/node": "^26.2.0",
     "autoprefixer": "^10.5.4",

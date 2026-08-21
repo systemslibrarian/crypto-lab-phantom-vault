@@ -1,7 +1,3 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
 :root {
   --bg: #080c14;
   --panel: #0f1624;
@@ -283,6 +279,18 @@ input {
   border-radius: 8px;
   min-height: 44px;
   padding: 0.65rem 0.75rem;
+}
+
+/* Pin the placeholder ink instead of inheriting a reset's guess. Tailwind v3's
+   preflight painted it #9ca3af (7.2:1 here, but 2.6:1 on a white surface);
+   v4's paints `currentColor` at 50%, which composites to ~4.5:1 on --panel --
+   right on the WCAG 1.4.3 line, and lands below it on a light surface. --muted
+   is the same ink every other hint on the page uses and clears AA in both
+   palettes, so the service/username hints stay readable whatever the reset
+   underneath decides. */
+::placeholder {
+  color: var(--muted);
+  opacity: 1;
 }
 
 input:focus-visible,
