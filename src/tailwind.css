@@ -1,0 +1,22 @@
+/* Tailwind's own entry point, deliberately kept out of `style.css`.
+ *
+ * v4 replaced the three `@tailwind` directives with a single import, and no
+ * longer reads `tailwind.config.js` implicitly -- `@config` keeps that file
+ * authoritative so the scanned content globs stay exactly what v3 used.
+ *
+ * It lives in its own file because `@tailwindcss/postcss` runs Lightning CSS
+ * over every stylesheet it touches, at Tailwind's own browser targets. With
+ * the import inside `style.css`, that pass rewrote the hand-written
+ * `color-mix()` surfaces (`.cl-hero-why`, `.status-pill`) into a downlevel
+ * pair whose pre-color-mix fallback is a SOLID accent/status fill under
+ * `--text` -- 1.5:1 on the status pill, where dropping the declaration (what
+ * a browser without `color-mix()` did before) left the panel behind it at
+ * ~14:1. The plugin passes a stylesheet with no Tailwind syntax through
+ * untouched, so splitting the entry keeps `style.css` byte-identical through
+ * the build.
+ *
+ * Corollary: `@apply` and friends only work in THIS file. Anything using them
+ * must live here, not in `style.css`.
+ */
+@import 'tailwindcss';
+@config '../tailwind.config.js';

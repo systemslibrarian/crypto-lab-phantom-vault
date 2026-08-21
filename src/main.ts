@@ -1,3 +1,6 @@
+// Tailwind's preflight/utilities first, hand-written styles second -- see
+// the header comment in `tailwind.css` for why the two are separate files.
+import './tailwind.css';
 import './style.css';
 import { buildCharset, estimatePassphraseEntropyBits } from './crypto/charset';
 import { derivePassword, type PipelineStep } from './derive/pipeline';
