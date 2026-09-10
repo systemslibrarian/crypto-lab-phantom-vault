@@ -151,3 +151,5 @@ jobs:
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+# no-op: verifying the PR gate now runs on this workflow. Removed with the branch.
