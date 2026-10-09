@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "build": "npm run test:publish-request && tsc --noEmit && vite build",
     "type-check": "tsc --noEmit && tsc -p tsconfig.test.json",
     "test": "node --import tsx --test \"src/**/*.test.ts\"",
     "test:coverage": "node --import tsx --test --experimental-test-coverage \"src/**/*.test.ts\"",
@@ -14,7 +14,9 @@
     "preview": "vite preview",
     "test:e2e": "playwright test",
     "test:a11y": "playwright test e2e/a11y.spec.ts",
-    "test:claims": "playwright test e2e/claims.spec.ts"
+    "test:claims": "playwright test e2e/claims.spec.ts",
+    "deploy": "gh workflow run pages.yml --repo systemslibrarian/crypto-lab-phantom-vault --ref main",
+    "test:publish-request": "node --test tests/publish-request.node.mjs"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",
@@ -23,7 +25,6 @@
     "@types/jsdom": "^30.0.0",
     "@types/node": "^26.6.4",
     "autoprefixer": "^10.6.1",
-    "gh-pages": "^6.3.0",
     "jsdom": "^30.1.2",
     "postcss": "^8.5.28",
     "tailwindcss": "^4.3.3",
