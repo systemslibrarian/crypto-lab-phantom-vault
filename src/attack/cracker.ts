@@ -11,9 +11,10 @@ import type { CharsetConfig, VaultInputs } from '../types/vault';
  * can mount a straightforward offline attack: guess a passphrase, run the same
  * public derivation, and compare the output to the password they hold. A match
  * is a candidate CONSISTENT with the credential — one finite output cannot rule
- * out every other passphrase that would produce it — and how strong that
- * evidence is depends on the format: the panel computes it from the reachable
- * output space rather than asserting it.
+ * out every other passphrase that would produce it. Format capacity does not
+ * measure the strength of that evidence. The panel reports only a
+ * reachable-support upper bound limited by the 256-bit seed, not exact collision
+ * odds or uniqueness. Cross-service predictions need independent confirmation.
  *
  * This is the entropy-cap panel's claim made falsifiable. That panel asserts
  * that a weak passphrase caps effective strength no matter how long or exotic
@@ -175,8 +176,8 @@ export async function crackMasterPassphrase(
     // The consequence, run for real: same attacker, same public algorithm, a
     // different site. No ground truth is needed — the candidate reproduced the
     // stolen password byte for byte above, which is exactly the evidence a
-    // real attacker would act on (see the panel's collision-margin note for
-    // how strong that evidence is at each format).
+    // real attacker would act on. This prediction still needs independent
+    // confirmation; the panel's support ceiling does not prove uniqueness.
     const service = pivotService(stolen.service);
     const other = await derive(
       {

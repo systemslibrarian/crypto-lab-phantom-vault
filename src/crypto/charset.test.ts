@@ -177,10 +177,8 @@ test('the full charset is exactly the sum of the shipped classes', () => {
 });
 
 /**
- * validOutputBits counts what the generator can actually emit. The pipeline
- * rejects any candidate missing an enabled class and redraws, so the reachable
- * space is smaller than charsetSize^length — which is the exponent the Break-it
- * panel used to print as its collision margin.
+ * validOutputBits counts format-valid strings, not the image of the finite-seed
+ * deterministic pipeline or an implementation-level collision probability.
  */
 test('validOutputBits counts only outputs satisfying the required-class rule', () => {
   const all = { lowercase: true, uppercase: true, digits: true, symbols: true };
@@ -212,4 +210,25 @@ test('validOutputBits counts only outputs satisfying the required-class rule', (
       }
   // Inclusion-exclusion over classes of size 2 and 2: 4^3 - 2^3 - 2^3 + 0 = 48.
   assert.equal(valid, 48);
+});
+
+test('64-character format capacity agrees with exact BigInt counting and exceeds the seed support ceiling', () => {
+  const all = { lowercase: true, uppercase: true, digits: true, symbols: true };
+  // Independent dynamic programming: append a character from each class and
+  // accumulate which classes have appeared. No floating-point powers or the
+  // production counter's inclusion-exclusion implementation.
+  let counts = Array<bigint>(16).fill(0n);
+  counts[0] = 1n;
+  for (let i = 0; i < 64; i += 1) {
+    const next = Array<bigint>(16).fill(0n);
+    for (let mask = 0; mask < 16; mask += 1) {
+      [26n, 26n, 10n, 27n].forEach((size, cls) => { next[mask | (1 << cls)] += counts[mask] * size; });
+    }
+    counts = next;
+  }
+  const exactBits = Math.log2(Number(counts[15]));
+  assert.ok(Math.abs(validOutputBits(all, 64) - exactBits) < 1e-10);
+  assert.ok(Math.abs(exactBits - 414.446237) < 1e-6);
+  assert.ok(counts[15] > 2n ** 256n);
+  assert.equal(Math.min(exactBits, 256), 256);
 });

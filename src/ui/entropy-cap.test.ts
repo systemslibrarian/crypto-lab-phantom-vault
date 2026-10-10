@@ -49,6 +49,15 @@ test('a strong passphrase makes the output format the limiter (not capped)', () 
   assert.match(text(cap.element, '#cap-verdict'), /Not capped/i);
 });
 
+test('long-output chart separates format capacity from the fixed 256-bit seed ceiling', () => {
+  const cap = createEntropyCap();
+  cap.update({ masterPassphrase: 'A1!a'.repeat(24), length: 64, charset: ALL });
+  assert.equal(text(cap.element, '#cap-effective-value'), '256 bits');
+  assert.match(text(cap.element, '#cap-ceiling-value'), /^414 bits/);
+  assert.match(text(cap.element, '#cap-verdict'), /256-bit.*seed/i);
+  assert.match(text(cap.element, '#cap-caption'), /actual entropy.*not measured/i);
+});
+
 /**
  * Regression — the "Not capped" branch endorsed the passphrase.
  *

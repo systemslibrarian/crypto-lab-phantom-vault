@@ -1,3 +1,5 @@
+import { PBKDF2_SEED_BITS } from './seed-size';
+
 const encoder = new TextEncoder();
 
 interface WorkerRequest {
@@ -62,7 +64,7 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>): Promise<void> => {
         hash: 'SHA-256',
       },
       keyMaterial,
-      256,
+      PBKDF2_SEED_BITS,
     );
 
     postProgress(100);

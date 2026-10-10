@@ -1,4 +1,5 @@
 import type { VaultInputs } from '../types/vault';
+import { PBKDF2_SEED_BITS } from './seed-size';
 
 const encoder = new TextEncoder();
 
@@ -36,7 +37,7 @@ export async function deriveSeeds(inputs: VaultInputs): Promise<Uint8Array> {
       hash: 'SHA-256',
     },
     keyMaterial,
-    256,
+    PBKDF2_SEED_BITS,
   );
 
   return new Uint8Array(derived);

@@ -1,4 +1,5 @@
 import { estimateEntropyBits } from '../crypto/charset';
+import { PBKDF2_SEED_BITS } from '../crypto/seed-size';
 
 export interface OutputController {
   element: HTMLElement;
@@ -24,7 +25,7 @@ function requireNode<T extends Element>(parent: ParentNode, selector: string): T
  * The band an UPPER BOUND puts a passphrase in — and, crucially, whether that
  * bound can carry the band as a verdict.
  *
- * `effectiveBits` is min(format ceiling, composition ceiling), and both terms
+ * `effectiveBits` is min(format ceiling, composition ceiling, seed width); these
  * are ceilings. A ceiling can prove a passphrase is weak; it can never prove one
  * is strong. Printing "Strength: Fair" off it put this page in flat
  * contradiction with its own Break-it panel: measured over the shipped default
@@ -80,7 +81,7 @@ export function createOutput(): OutputController {
       </div>
       <dl class="entropy-breakdown">
         <div class="entropy-row">
-          <dt>Effective entropy</dt>
+          <dt>Entropy upper bound</dt>
           <dd id="entropy-effective">n/a</dd>
         </div>
         <div class="entropy-row">
@@ -176,8 +177,9 @@ export function createOutput(): OutputController {
     const ceilingBits = estimateEntropyBits(charsetSize, length);
     // ...but a deterministic deriver can never produce MORE entropy than the
     // secret it started from. The weakest link wins.
-    const effectiveBits = Math.min(ceilingBits, passphraseEntropyBits);
-    const capped = passphraseEntropyBits < ceilingBits;
+    const effectiveBits = Math.min(ceilingBits, passphraseEntropyBits, PBKDF2_SEED_BITS);
+    const capped = passphraseEntropyBits < Math.min(ceilingBits, PBKDF2_SEED_BITS);
+    const seedLimited = PBKDF2_SEED_BITS < Math.min(ceilingBits, passphraseEntropyBits);
 
     const strength = strengthLabel(effectiveBits);
 
@@ -185,11 +187,13 @@ export function createOutput(): OutputController {
     entropyCeiling.textContent = `${ceilingBits.toFixed(1)} bits (${length} chars × log₂ ${charsetSize})`;
     entropyPassphrase.textContent = `${passphraseEntropyBits.toFixed(1)} bits`;
     const bothCeilings =
-      ' Both numbers above are ceilings: the passphrase figure is length × log₂(apparent character pool), which assumes the phrase was drawn uniformly from that pool. A phrase in an attacker\'s dictionary is worth a handful of bits no matter what it scores here — the Break-it panel below is where that gets tested.';
+      ` All numbers are upper bounds: the fixed-context pipeline is limited by its ${PBKDF2_SEED_BITS}-bit PBKDF2 seed. The actual entropy is not measured; the passphrase figure is length × log₂(apparent character pool), assuming uniform selection from that pool. A phrase in an attacker's dictionary remains guessable no matter what it scores here — try the Break-it panel below.`;
     entropyNote.textContent =
-      (capped
+      (seedLimited
+        ? `The ${PBKDF2_SEED_BITS}-bit PBKDF2 seed is the lower ceiling here. A longer format does not create additional secret seed states or prove a uniform output distribution.`
+        : capped
         ? 'Your master passphrase — not the charset — is the limit here. Deterministic derivation cannot add entropy a weak passphrase never had.'
-        : 'The output format is the lower of the two ceilings here. That is not a verdict on the passphrase: raising length or enabling more character classes moves this bar, and moves nothing about how guessable the phrase is.') +
+        : 'The output format is the lower ceiling here. That is not a verdict on the passphrase: raising length or enabling more character classes moves this bar, and moves nothing about how guessable the phrase is.') +
       bothCeilings;
 
     // A ceiling can prove weakness; it cannot certify strength. Only the "Weak"
@@ -205,7 +209,7 @@ export function createOutput(): OutputController {
         : `at most ${strength.label}, no more than ${effectiveBits.toFixed(0)} bits`,
     );
     liveRegion.textContent = strength.sound
-      ? `Password derived. Estimated strength ${strength.label}, about ${effectiveBits.toFixed(0)} bits of effective entropy.`
+      ? `Password derived. ${strength.label}: entropy upper bound no more than ${effectiveBits.toFixed(0)} bits. Actual entropy is not measured.`
       : `Password derived. Upper bound only: at most ${strength.label}, no more than ${effectiveBits.toFixed(0)} bits. The real figure depends on how the passphrase was chosen and can be far lower.`;
   }
 
