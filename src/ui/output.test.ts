@@ -43,6 +43,15 @@ test('strong passphrase makes the output format the limiter', () => {
   assert.match(text(out.element, '#entropy-note'), /output format/i);
 });
 
+test('a 64-character format and large composition figure cannot exceed the 256-bit seed ceiling', () => {
+  const out = createOutput();
+  out.setOutput('A1!a'.repeat(16), 89, 64, 800);
+  assert.equal(text(out.element, '#entropy-effective'), '256.0 bits');
+  assert.match(text(out.element, '#entropy-ceiling'), /^414\./);
+  assert.match(text(out.element, '#entropy-note'), /256-bit.*seed/i);
+  assert.match(text(out.element, '#entropy-note'), /actual entropy.*not measured/i);
+});
+
 /**
  * Regression — the page rated passphrases its own Break-it panel cracks.
  *

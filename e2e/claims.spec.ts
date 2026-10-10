@@ -81,7 +81,7 @@ test('break-it panel recovers a weak passphrase and its pivot matches what the v
   );
   expect(crackText, 'the 94-symbol claim is gone').not.toContain('94-symbol');
 
-  // The collision margin is the REACHABLE output space, not alphabet^length: the
+  // The support UPPER BOUND also respects format validity, not alphabet^length: the
   // required-class rule removes 0.14 bits at this format, so the printed integer
   // must be 129 where the unconstrained ceiling would print 130.
   const margin = Number(
@@ -91,8 +91,11 @@ test('break-it panel recovers a weak passphrase and its pivot matches what the v
   expect(margin, 'a margin was computed at all').toBeGreaterThan(unconstrained - 2);
   expect(
     margin,
-    `margin ${margin} is the unconstrained ceiling ${unconstrained.toFixed(2)}, not the reachable space`,
+    `bound ${margin} is the unconstrained ceiling ${unconstrained.toFixed(2)}, ignoring format constraints`,
   ).toBeLessThanOrEqual(Math.floor(unconstrained));
+  expect(margin).toBeLessThanOrEqual(256);
+  await expect(page.locator('#crack-result')).toContainText('reachable-support upper bound');
+  await expect(page.locator('#crack-result')).toContainText('cannot establish exact collision odds');
 
   const pivotService = await page.locator('[data-crack-pivot-service]').innerText();
   const pivotPassword = await page.locator('[data-crack-pivot]').innerText();

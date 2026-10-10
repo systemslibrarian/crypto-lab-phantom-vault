@@ -135,17 +135,16 @@ function enabledClassSizes(config: CharsetConfig): number[] {
 }
 
 /**
- * log2 of the number of length-`length` strings this generator can actually
- * produce — which is NOT charsetSize^length.
+ * log2 of FORMAT CAPACITY: strings satisfying every enabled class, independent
+ * of how this deterministic pipeline's finite seed maps to them.
  *
  * The pipeline rejects any candidate missing an enabled character class and
- * draws again (derive/pipeline.ts), so the reachable outputs are exactly the
- * strings satisfying the coverage rule. Counting them is inclusion-exclusion
+ * draws again (derive/pipeline.ts), so successful outputs belong to this set.
+ * It does NOT prove every valid string is reachable. Counting is inclusion-exclusion
  * over "class i is absent". The gap matters most at short lengths — measured
  * over the full 89-symbol alphabet it is 1.06 bits at length 8, 0.14 at the
- * default length 20 and 0.00 by length 64 — and it is the right exponent for
- * "how improbable is it that a WRONG passphrase reproduced this password",
- * because a wrong passphrase draws from the same constrained space.
+ * default length 20 and 0.00 by length 64. Neither this count nor the seed-width
+ * ceiling establishes uniformity, actual entropy or exact collision odds.
  */
 export function validOutputBits(config: CharsetConfig, length: number): number {
   const sizes = enabledClassSizes(config);

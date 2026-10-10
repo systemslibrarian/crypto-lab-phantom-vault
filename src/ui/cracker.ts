@@ -8,6 +8,7 @@ import {
 } from '../attack/cracker';
 import { buildCharset, validOutputBits } from '../crypto/charset';
 import { PBKDF2_ITERATIONS } from '../crypto/pbkdf2';
+import { PBKDF2_SEED_BITS } from '../crypto/seed-size';
 
 const ITERATIONS = PBKDF2_ITERATIONS.toLocaleString('en-US');
 
@@ -68,8 +69,9 @@ export function createCracker(): CrackerController {
       plaintext — phishing, a keylogger, a shoulder-surf, a site that stored or logged it
       improperly (a well-run site stores only a hash) — can guess passphrases offline: run the
       same public pipeline on each guess and compare. A match is a passphrase consistent with the
-      stolen credential — the verdict below computes how strong that evidence is from the output
-      format — and every other site's password follows from it.
+      stolen credential. The verdict distinguishes format capacity from the finite seed limit;
+      neither proves uniqueness. The candidate can predict other sites' passwords, but those
+      predictions need confirmation before treating it as the original passphrase.
       This panel is handed exactly what such an attacker holds. Your passphrase is cleared from
       the form the moment a derivation finishes, and the search below never sees it.
     </p>
@@ -177,28 +179,12 @@ export function createCracker(): CrackerController {
     }
 
     const pivot = outcome.pivot;
-    // How improbable a false match would be, computed from this run's own
-    // format. Two corrections over the obvious version:
-    //
-    //  - the exponent is the REACHABLE output space, not alphabet^length. The
-    //    generator retries until every enabled class appears, so a wrong
-    //    passphrase draws from the constrained set too. Measured overstatement
-    //    of the naive figure: 1.06 bits at the minimum length 8, 0.14 at the
-    //    default 20, 0.00 by 64.
-    //  - the verdict is conditional on that number. One finite output does not
-    //    single out a passphrase; it identifies one CONSISTENT with the
-    //    credential. At the default 20 characters over 89 symbols that is 129
-    //    bits of agreement and the distinction is academic, but the minimum
-    //    shipped format — 8 characters, lowercase only — is 37.6 bits, and this
-    //    panel's own scale note describes real dictionaries of "billions of
-    //    entries" (~2^30). A 2^30 dictionary against a 2^37.6 output space
-    //    contains a colliding wrong candidate about 0.5% of the time. The
-    //    headline no longer asserts uniqueness the search did not establish.
+    // A deterministic map of 2^seedBits possible secret seeds cannot reach more
+    // outputs than that. Counting valid format strings only supplies another
+    // support ceiling; it supplies neither a distribution nor collision odds.
     const alphabet = charsetSize(credential.charset);
-    const matchBits = validOutputBits(credential.charset, credential.length);
-    const dictionaryBits = 30; // a billion entries, the scale note's own figure
-    const collisionOdds = Math.pow(2, dictionaryBits - matchBits);
-    const decisive = matchBits >= 64;
+    const formatBits = validOutputBits(credential.charset, credential.length);
+    const supportBits = Math.min(formatBits, PBKDF2_SEED_BITS);
     resultBox.innerHTML = `
       <p class="crack-verdict crack-broken" data-crack-verdict>CREDENTIAL-CONSISTENT PASSPHRASE FOUND after
       ${outcome.guessesTried} guess${outcome.guessesTried === 1 ? '' : 'es'}:
@@ -206,32 +192,29 @@ export function createCracker(): CrackerController {
       <p class="crack-detail">Guess ${outcome.guessesTried} reproduced the stolen
       ${credential.length}-character password for "${escapeHtml(credential.service)}" exactly, character
       for character. The derivation is deterministic, so this candidate is not a near miss — but one
-      finite output cannot prove it is the <em>only</em> passphrase that produces it. How close that
-      distinction is comes from the format: this one has
-      <strong data-crack-margin>${matchBits.toFixed(0)} bits</strong> of reachable output space
-      (${credential.length} characters over ${alphabet} symbols, minus the strings the required-class
-      rule rejects). ${
-        decisive
-          ? `A billion-entry attack dictionary would contain a colliding wrong candidate about
-             ${collisionOdds.toExponential(1)} of the time, so here the candidate is the passphrase
-             for every practical purpose.`
-          : `A billion-entry attack dictionary — the scale this panel's note describes — would
-             contain a colliding wrong candidate about ${(collisionOdds * 100).toFixed(1)}% of the
-             time at this format, which is why the verdict says "consistent with" and not
-             "recovered". A second stolen credential from a different service would settle it.`
-      }</p>
+      finite output cannot prove it is the <em>only</em> passphrase that produces it.
+      Format capacity is <strong data-crack-format>${formatBits.toFixed(1)} bits</strong>
+      (${credential.length} characters over ${alphabet} symbols, excluding strings rejected by the
+      required-class rule). The reachable-support upper bound is
+      <strong data-crack-margin>${supportBits.toFixed(0)} bits</strong>: at most the smaller of
+      that format capacity and the ${PBKDF2_SEED_BITS}-bit PBKDF2 seed, with public context fixed.
+      This is not a measurement of entropy or a claim that every valid string is reachable.</p>
+      <p class="crack-detail">Seed collisions and later mapping collisions can both produce a match.
+      This run cannot establish exact collision odds: format counting does not establish uniform
+      seeds, uniform output probabilities or the entropy of the master passphrase. No numerical
+      collision probability is asserted. A second credential can add evidence, not prove uniqueness.</p>
       ${
         pivot
-          ? `<p class="crack-detail">And the damage does not stop at the stolen site. With that
-             passphrase the same attacker immediately derives your password for
+          ? `<p class="crack-detail">With this credential-consistent candidate the attacker predicts a password for
              <strong data-crack-pivot-service>${escapeHtml(pivot.service)}</strong> — computed here,
-             not asserted:
+             not asserted, but requiring confirmation against that site's credential:
              <code class="crack-secret" data-crack-pivot>${escapeHtml(pivot.password)}</code></p>`
           : ''
       }
       <p class="crack-detail">This is the entropy cap made concrete. Length and charset set the
       <em>format</em> ceiling; they cannot raise the floor. A 64-character password over the full
-      ${FULL_CHARSET_SIZE}-symbol charset is worth exactly as much as the passphrase behind it.</p>
+      ${FULL_CHARSET_SIZE}-symbol charset cannot exceed the secret input's entropy or the
+      ${PBKDF2_SEED_BITS}-bit seed ceiling. Actual entropy remains unknown.</p>
       ${rateLine}
     `;
     status.textContent = `Attack finished: a credential-consistent passphrase was found after ${outcome.guessesTried} guesses.`;

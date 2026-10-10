@@ -1,6 +1,7 @@
 import { DEFAULT_WORDLIST } from '../attack/cracker';
 import { buildCharset, estimateEntropyBits, estimatePassphraseEntropyBits } from '../crypto/charset';
 import type { CharsetConfig, VaultInputs } from '../types/vault';
+import { PBKDF2_SEED_BITS } from '../crypto/seed-size';
 
 /** Counted from the shipped list, so the copy below cannot drift from it. */
 const WORDLIST_SIZE = DEFAULT_WORDLIST.length;
@@ -53,8 +54,8 @@ export function createEntropyCap(): EntropyCapController {
     <p class="helper-text">
       A deterministic deriver can never output more randomness than the master passphrase
       it started from. Drag <strong>Length</strong> and toggle character classes above and
-      watch the <strong>format ceiling</strong> climb — while <strong>effective entropy</strong>
-      refuses to rise past the passphrase line. That gap is why a strong passphrase matters
+      watch the <strong>format ceiling</strong> climb — while the <strong>entropy upper bound</strong>
+      cannot exceed either the composition model or the ${PBKDF2_SEED_BITS}-bit seed. That gap is why passphrase choice matters
       more than a long password.
     </p>
     <p class="helper-text">
@@ -65,7 +66,7 @@ export function createEntropyCap(): EntropyCapController {
       panel below recovers it from a ${WORDLIST_SIZE}-line wordlist.
     </p>
 
-    <div class="cap-chart" role="group" aria-label="Effective entropy versus format ceiling, capped by the master passphrase">
+    <div class="cap-chart" role="group" aria-label="Entropy upper bound versus format ceiling, limited by composition and seed width">
       <div class="cap-row">
         <span class="cap-name" id="cap-ceiling-name">Format ceiling</span>
         <div class="cap-track">
@@ -75,7 +76,7 @@ export function createEntropyCap(): EntropyCapController {
         <span class="cap-value" id="cap-ceiling-value">0 bits</span>
       </div>
       <div class="cap-row">
-        <span class="cap-name" id="cap-effective-name">Effective entropy</span>
+        <span class="cap-name" id="cap-effective-name">Entropy upper bound</span>
         <div class="cap-track">
           <div class="cap-bar cap-bar-effective" id="cap-effective-bar"></div>
           <div class="cap-line" id="cap-line-2" aria-hidden="true"></div>
@@ -83,7 +84,7 @@ export function createEntropyCap(): EntropyCapController {
         <span class="cap-value" id="cap-effective-value">0 bits</span>
       </div>
       <p class="cap-caption" id="cap-caption">
-        The dashed line marks the master-passphrase entropy — the hard ceiling on effective strength.
+        The dashed line marks the lower composition/seed ceiling; actual entropy is not measured.
       </p>
     </div>
 
@@ -115,15 +116,17 @@ export function createEntropyCap(): EntropyCapController {
     const length = Number.isFinite(inputs.length) ? inputs.length : 0;
     const ceilingBits = estimateEntropyBits(size, length);
     const passphraseBits = estimatePassphraseEntropyBits(inputs.masterPassphrase);
-    const effectiveBits = Math.min(ceilingBits, passphraseBits);
-    const capped = passphraseBits < ceilingBits;
+    const secretCeiling = Math.min(passphraseBits, PBKDF2_SEED_BITS);
+    const effectiveBits = Math.min(ceilingBits, secretCeiling);
+    const capped = secretCeiling < ceilingBits;
+    const seedLimited = PBKDF2_SEED_BITS < Math.min(ceilingBits, passphraseBits);
 
     ceilingBar.style.width = `${pct(ceilingBits)}%`;
     effectiveBar.style.width = `${pct(effectiveBits)}%`;
     ceilingValue.textContent = `${ceilingBits.toFixed(0)} bits`;
     effectiveValue.textContent = `${effectiveBits.toFixed(0)} bits`;
 
-    const linePct = `${pct(passphraseBits)}%`;
+    const linePct = `${pct(secretCeiling)}%`;
     line1.style.left = linePct;
     line2.style.left = linePct;
     // Hide the marker when the passphrase field is empty (nothing to cap by).
@@ -139,7 +142,7 @@ export function createEntropyCap(): EntropyCapController {
       return;
     }
 
-    caption.textContent = `Master-passphrase composition ceiling: ${passphraseBits.toFixed(0)} bits — the dashed line, and an upper bound on effective strength. The true figure is whatever the process that chose the phrase actually had, which can be far lower.`;
+    caption.textContent = `Master-passphrase composition ceiling: ${passphraseBits.toFixed(0)} bits; PBKDF2 seed ceiling: ${PBKDF2_SEED_BITS} bits. The dashed line marks the lower ceiling. Actual entropy is not measured: it depends on how the passphrase was chosen and can be far lower.`;
     effectiveBar.dataset.capped = capped ? 'true' : 'false';
 
     // Both branches used to state the composition bound as a measurement. It is
@@ -150,9 +153,11 @@ export function createEntropyCap(): EntropyCapController {
     // which the Break-it panel recovers from its ${WORDLIST_SIZE}-line default
     // wordlist. "correct horse battery staple" draws the same endorsement across
     // lengths 8-25 and falls from that same list too.
-    verdict.textContent = capped
+    verdict.textContent = seedLimited
+      ? `Capped by the ${PBKDF2_SEED_BITS}-bit PBKDF2 seed: the format could hold ${ceilingBits.toFixed(0)} bits, but the fixed-context deterministic pipeline has no more than ${PBKDF2_SEED_BITS} bits of reachable-support capacity. This is not a measurement of entropy or a guarantee of uniformity. The passphrase may be much more guessable.`
+      : capped
       ? `Capped: the format could hold ${ceilingBits.toFixed(0)} bits, but this passphrase caps effective strength at no more than ${effectiveBits.toFixed(0)}. Cranking length or charset moves only the top bar.`
-      : `Not capped by composition: the ${ceilingBits.toFixed(0)}-bit format is the lower ceiling here, since the passphrase's composition bound is ${passphraseBits.toFixed(0)} bits. That bound is not a measurement — it assumes the phrase was picked uniformly from its character pool, and says nothing about whether it is in an attacker's dictionary. Try the Break-it panel below before treating it as strength.`;
+      : `Not capped by composition or seed: the ${ceilingBits.toFixed(0)}-bit format is the lower ceiling here; composition gives ${passphraseBits.toFixed(0)} bits and the seed gives ${PBKDF2_SEED_BITS} bits. That bound is not a measurement — it assumes the phrase was picked uniformly from its character pool, and says nothing about whether it is in an attacker's dictionary. Try the Break-it panel below before treating it as strength.`;
   }
 
   function onWeakPreset(handler: () => void): void {
