@@ -58,7 +58,7 @@ export function createForm(): FormController {
         <span>Master Passphrase</span>
         <div class="passphrase-wrap">
           <input type="password" id="master-passphrase" autocomplete="off" required aria-required="true" minlength="1" />
-          <button type="button" class="small-button" id="toggle-passphrase" aria-label="Toggle passphrase visibility">Show</button>
+          <button type="button" class="small-button" id="toggle-passphrase" aria-label="Show: toggle passphrase visibility">Show</button>
         </div>
       </label>
       <label class="field">
@@ -179,7 +179,14 @@ export function createForm(): FormController {
   toggleButton.addEventListener('click', () => {
     const hidden = passphraseInput.type === 'password';
     passphraseInput.type = hidden ? 'text' : 'password';
+    // The name opens with the word on the button, so it has to move with it:
+    // axe 4.14 reports label-content-name-mismatch (WCAG 2.5.3 Label in Name)
+    // when the accessible name does not contain the visible text.
     toggleButton.textContent = hidden ? 'Hide' : 'Show';
+    toggleButton.setAttribute(
+      'aria-label',
+      `${hidden ? 'Hide' : 'Show'}: toggle passphrase visibility`,
+    );
   });
 
   function setBusy(next: boolean): void {
